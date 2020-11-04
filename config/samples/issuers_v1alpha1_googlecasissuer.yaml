@@ -1,0 +1,11 @@
+apiVersion: issuers.jetstack.io/v1alpha1
+kind: GoogleCASIssuer
+metadata:
+  name: googlecasissuer-sample
+spec:
+  project: jetstack-cas
+  location: europe-west1
+  certificateAuthorityID: demo-root
+  credentials:
+    name: "googlesa"
+    key: "jetstack-cas-b2a950e42388.json"

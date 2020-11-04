@@ -1,0 +1,24 @@
+# permissions for end users to edit googlecasissuers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: googlecasissuer-editor-role
+rules:
+- apiGroups:
+  - issuers.jetstack.io
+  resources:
+  - googlecasissuers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - issuers.jetstack.io
+  resources:
+  - googlecasissuers/status
+  verbs:
+  - get

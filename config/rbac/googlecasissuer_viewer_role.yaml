@@ -1,0 +1,20 @@
+# permissions for end users to view googlecasissuers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: googlecasissuer-viewer-role
+rules:
+- apiGroups:
+  - issuers.jetstack.io
+  resources:
+  - googlecasissuers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - issuers.jetstack.io
+  resources:
+  - googlecasissuers/status
+  verbs:
+  - get
