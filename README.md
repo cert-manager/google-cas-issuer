@@ -77,7 +77,7 @@ then store it in a Kubernetes secret.
 ### Kubernetes RBAC rules
 
 Examine the ClusterRole and ClusterRolebinding in `config/rbac/role.yaml` and
-`configrbac/role_binding.yaml`. By default, these give the default Kubernetes service
+`config/rbac/role_binding.yaml`. By default, these give the default Kubernetes service
 account in the cert-manager namespace all the necessary permissions. Customise these to your needs.
 
 ```shell
