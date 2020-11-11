@@ -45,10 +45,8 @@ Ensure your cluster is set up with
 enabled. Create a kubernetes service account for the CAS Issuer:
 
 ```shell
-# Optionally create a namespace or install in the cert-manager namespace
-kubectl create namespace casissuer
 # Create a new Kubernetes service account
-kubectl create serviceaccount -n casissuer my-ksa
+kubectl create serviceaccount -n cert-manager my-ksa
 ```
 
 Bind the Kubernetes service account to the Google Cloud service account:
@@ -56,11 +54,11 @@ Bind the Kubernetes service account to the Google Cloud service account:
 ```shell
 gcloud iam service-accounts add-iam-policy-binding \
   --role roles/iam.workloadIdentityUser \
-  --member "serviceAccount:project-id.svc.id.goog[casissuer/my-ksa]" \
+  --member "serviceAccount:project-id.svc.id.goog[cert-manager/my-ksa]" \
   my-sa@project-id.iam.gserviceaccount.com
 
 kubectl annotate serviceaccount \
-  --namespace casissuer \
+  --namespace cert-manager \
   my-ksa \
   iam.gke.io/gcp-service-account=my-sa@project-id.iam.gserviceaccount.com
 ```
@@ -71,7 +69,7 @@ Download the private key in JSON format for the service account you created earl
 then store it in a Kubernetes secret.
 
 ```shell
- kubectl create secret generic googlesa --from-file project-name-keyid.json 
+ kubectl -n cert-manager create secret generic googlesa --from-file project-name-keyid.json 
 ```
 
 ## Issuer setup
@@ -110,7 +108,6 @@ spec:
   # credentials are optional if workload identity is enabled
   credentials:
     name: "googlesa"
-    namespace: "default"
     key: "project-name-keyid.json"
 ```
 
