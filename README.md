@@ -24,18 +24,24 @@ kubectl apply -k config/crd
 
 ## IAM setup
 
-Firstly, create a Google Cloud IAM service account
+Firstly, create a Google Cloud IAM service account.
 
 ```shell
 gcloud iam service-accounts create my-sa
 ```
 
 Apply the appropriate IAM bindings to this account. This example
-gives full access to CAS, but you can restrict it as necessary.
+gives full access to CAS, but you can restrict it as necessary (see [Predefined Roles](https://cloud.google.com/certificate-authority-service/docs/reference/permissions-and-roles#predefined_roles) for more details).
 
 ```shell
 gcloud iam service-accounts add-iam-policy-binding my-sa@project-id.iam.gserviceaccount.com \
 --role=roles/privateca.admin
+```
+
+You can now create a service account key and download it to a JSON file.
+
+```shell
+gcloud iam service-accounts keys create project-name-keyid.json --iam-account my-sa@project-id.iam.gserviceaccount.com
 ```
 
 ### Inside GKE with workload identity
