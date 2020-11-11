@@ -6,6 +6,8 @@ for cert-manager that issues certificates using Google's private
 
 # Usage
 
+## Prerequisites
+
 Enable the private CA API in your GCP project by following the
 [official documentation](https://cloud.google.com/certificate-authority-service/docs/quickstart).
 
@@ -20,18 +22,60 @@ Install the CRDs from `config/crd`
 kubectl create -f config/crd
 ```
 
-If running off GKE or in a different project, create a service account
-that has the Private CA - Admin Role in the project that has Google CAS enabled,
-download the private key in JSON format and store it in a Kubernetes Secret:
+## IAM setup
+
+Firstly, create a Google Cloud IAM service account
 
 ```shell
- kubectl create secret generic googlesa --from-file project-name-keyid.json 
+gcloud iam service-accounts create my-sa
 ```
 
-If running on GKE, you can skip this step if you bind the correct IAM
-roles to your workload service account.
+Apply the appropriate IAM bindings to this account. This example
+gives full access to CAS, but you can restrict it as necessary.
 
-Create a root CA from the dashboard, or other API
+```shell
+gcloud iam service-accounts add-iam-policy-binding my-sa@project-id.iam.gserviceaccount.com \
+--role=roles/privateca.admin
+```
+
+### Inside GKE with workload identity
+
+Ensure your cluster is set up with
+[workload identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity)
+enabled. Create a kubernetes service account for the CAS Issuer:
+
+```shell
+# Create a new Kubernetes service account
+kubectl create serviceaccount -n cert-manager my-ksa
+```
+
+Bind the Kubernetes service account to the Google Cloud service account:
+
+```shell
+gcloud iam service-accounts add-iam-policy-binding \
+  --role roles/iam.workloadIdentityUser \
+  --member "serviceAccount:project-id.svc.id.goog[cert-manager/my-ksa]" \
+  my-sa@project-id.iam.gserviceaccount.com
+
+kubectl annotate serviceaccount \
+  --namespace cert-manager \
+  my-ksa \
+  iam.gke.io/gcp-service-account=my-sa@project-id.iam.gserviceaccount.com
+```
+
+### Outside GKE or in an unrelated GCP Project
+
+Download the private key in JSON format for the service account you created earlier,
+then store it in a Kubernetes secret.
+
+```shell
+ kubectl -n cert-manager create secret generic googlesa --from-file project-name-keyid.json 
+```
+
+## Issuer setup
+
+Create a root CA from the Google dashboard, or other API - refer to the
+[official documentation](https://cloud.google.com/certificate-authority-service/docs/creating-certificate-authorities)
 
 Create an Issuer or ClusterIssuer:
 
@@ -44,7 +88,7 @@ spec:
   project: project-name
   location: europe-west1
   certificateAuthorityID: demo-root
-  # credentials are optional
+  # credentials are optional if workload identity is enabled
   credentials:
     name: "googlesa"
     key: "project-name-keyid.json"
@@ -61,10 +105,9 @@ spec:
   project: project-name
   location: europe-west1
   certificateAuthorityID: demo-root
-  # credentials are optional
+  # credentials are optional if workload identity is enabled
   credentials:
     name: "googlesa"
-    namespace: "default"
     key: "project-name-keyid.json"
 ```
 
