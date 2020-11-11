@@ -16,10 +16,10 @@ Install cert-manager
 kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.0.4/cert-manager.yaml --validate=false
 ```
 
-Install the CRDs from `config/crd`
+Install the CAS Issuer CRDs in `config/crd`. These manifests use kustomization (hence the `-k` option).
 
 ```shell
-kubectl create -f config/crd
+kubectl apply -k config/crd
 ```
 
 ## IAM setup
