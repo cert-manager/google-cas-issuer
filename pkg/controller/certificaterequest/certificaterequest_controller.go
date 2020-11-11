@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package certificaterequest
 
 import (
 	"bytes"
@@ -26,7 +26,8 @@ import (
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	api "github.com/jetstack/google-cas-issuer/api/v1alpha1"
-	"github.com/jetstack/google-cas-issuer/util/cas"
+	"github.com/jetstack/google-cas-issuer/pkg/cas"
+	issuerctrl "github.com/jetstack/google-cas-issuer/pkg/controller/issuer"
 	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -75,13 +76,14 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		log.V(4).Info("existing certificate data found in status, skipping already completed CertificateRequest")
 		return ctrl.Result{}, nil
 	}
-	var issuerNamespaceName types.NamespacedName
-	var casClient interface{}
-	var ok bool
+
+	var googleCASClient cas.Client
 	var parent string
-	if cr.Spec.IssuerRef.Kind == "GoogleCASClusterIssuer" {
+
+	switch cr.Spec.IssuerRef.Kind {
+	case "GoogleCASClusterIssuer":
 		issuer := api.GoogleCASClusterIssuer{}
-		issuerNamespaceName = types.NamespacedName{
+		issuerNamespaceName := types.NamespacedName{
 			Name: cr.Spec.IssuerRef.Name,
 		}
 		if err := r.Client.Get(ctx, issuerNamespaceName, &issuer); err != nil {
@@ -90,59 +92,73 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 			return ctrl.Result{}, err
 		}
 		parent = fmt.Sprintf("projects/%s/locations/%s/certificateAuthorities/%s", issuer.Spec.Project, issuer.Spec.Location, issuer.Spec.CertificateAuthorityID)
-		casClient, ok = ClusterIssuers.Load(issuerNamespaceName)
-	} else if cr.Spec.IssuerRef.Kind == "GoogleCASIssuer" {
+		casClient, ok := issuerctrl.ClusterIssuers.Load(issuerNamespaceName)
+		if !ok {
+			err := errors.New("couldn't retrieve CAS ClusterIssuer client - it probably hasn't reconciled yet")
+			log.Error(err, err.Error(), "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
+			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Couldn't retrieve CAS Issuer client %s: %v", issuerNamespaceName, errors.New("couldn't retrieve CAS Issuer client"))
+			return ctrl.Result{}, err
+		}
+		googleCASClient, ok = casClient.(cas.Client)
+		if !ok {
+			err := errors.New("Retrieved a non-CAS client from the cache, this should never happen")
+			log.Error(err, err.Error(), "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
+			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Couldn't retrieve CAS Issuer client %s: %v", issuerNamespaceName, errors.New("couldn't retrieve CAS Issuer client"))
+			return ctrl.Result{}, err
+		}
+	case "GoogleCASIssuer":
 		issuer := api.GoogleCASIssuer{}
-		issuerNamespaceName = types.NamespacedName{
+		issuerNamespaceName := types.NamespacedName{
 			Namespace: req.Namespace,
-			Name:      cr.Spec.IssuerRef.Name,
 		}
 		if err := r.Client.Get(ctx, issuerNamespaceName, &issuer); err != nil {
-			log.Error(err, "failed to retrieve GoogleCASClusterIssuer resource", "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
+			log.Error(err, "failed to retrieve GoogleCASIssuer resource", "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
 			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to retrieve CAS Issuer resource %s: %v", issuerNamespaceName, err)
 			return ctrl.Result{}, err
 		}
 		parent = fmt.Sprintf("projects/%s/locations/%s/certificateAuthorities/%s", issuer.Spec.Project, issuer.Spec.Location, issuer.Spec.CertificateAuthorityID)
-		casClient, ok = Issuers.Load(issuerNamespaceName)
-	} else {
+		casClient, ok := issuerctrl.Issuers.Load(issuerNamespaceName)
+		if !ok {
+			err := errors.New("couldn't retrieve CAS Issuer client - it probably hasn't reconciled yet")
+			log.Error(err, err.Error(), "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
+			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Couldn't retrieve CAS Issuer client %s: %v", issuerNamespaceName, errors.New("couldn't retrieve CAS Issuer client"))
+			return ctrl.Result{}, err
+		}
+		googleCASClient, ok = casClient.(cas.Client)
+		if !ok {
+			err := errors.New("Retrieved a non-CAS client from the cache, this should never happen")
+			log.Error(err, err.Error(), "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
+			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Couldn't retrieve CAS Issuer client %s: %v", issuerNamespaceName, errors.New("couldn't retrieve CAS Issuer client"))
+			return ctrl.Result{}, err
+		}
+	default:
 		log.Info("Noticed unhandled kind in Certificate Request:", "kind", cr.Spec.IssuerRef.Kind)
 		return ctrl.Result{}, nil
 	}
+
 	// Issue cert here
 	opts := &cas.CreateCertificateOptions{
-		Parent: parent,
-		//CertificateID: issuer.Spec.CertificateAuthorityID,
+		Parent:        parent,
 		CertificateID: fmt.Sprintf("cert-manager-%d", rand.Int()),
 		CSR:           cr.Spec.Request,
 		Expiry:        cr.Spec.Duration.Duration,
 	}
 
-	if !ok {
-		e := errors.New("couldn't retrieve CAS Issuer client - it probably hasn't reconciled yet")
-		log.Error(e, e.Error(), "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
-		_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Couldn't retrieve CAS Issuer client %s: %v", issuerNamespaceName, errors.New("couldn't retrieve CAS Issuer client"))
-		return ctrl.Result{}, e
-	}
-	googleCASClient, ok := casClient.(cas.Client)
-
-	if !ok {
-		e := errors.New("Retrieved a non-CAS client from the cache, this should never happen")
-		log.Error(e, e.Error(), "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
-		_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Couldn't retrieve CAS Issuer client %s: %v", issuerNamespaceName, errors.New("couldn't retrieve CAS Issuer client"))
-		return ctrl.Result{}, e
-	}
 	cert, chain, err := googleCASClient.CreateCertificate(opts)
 	if err != nil {
 		log.Error(err, "Couldn't sign certificate", "namespace", req.Namespace, "name", cr.Name, "err", err)
 		_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Couldn't sign certificate %s: %v", cr.Name, err)
 		return ctrl.Result{}, err
 	}
-	cr.Status.Certificate = []byte(cert)
-	buf := &bytes.Buffer{}
-	for _, c := range chain {
-		buf.WriteString(c)
+
+	certbuf := &bytes.Buffer{}
+	certbuf.WriteString(cert)
+	for _, c := range chain[:len(chain)-1] {
+		certbuf.WriteString(c)
 	}
-	cr.Status.CA = buf.Bytes()
+	cr.Status.Certificate = certbuf.Bytes()
+	cr.Status.CA = []byte(chain[len(chain)-1])
+
 	return ctrl.Result{}, r.setStatus(ctx, cr, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
 }
 

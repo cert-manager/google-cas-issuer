@@ -18,8 +18,9 @@ limitations under the License.
 package cas
 
 import (
-	"cloud.google.com/go/security/privateca/apiv1beta1"
 	"context"
+
+	"cloud.google.com/go/security/privateca/apiv1beta1"
 	"google.golang.org/api/option"
 )
 

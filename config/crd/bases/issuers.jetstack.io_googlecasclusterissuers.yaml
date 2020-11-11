@@ -6,9 +6,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
-  name: googlecasclusterissuers.issuers.jetstack.io
+  name: googlecasclusterissuers.cas-issuer.jetstack.io
 spec:
-  group: issuers.jetstack.io
+  group: cas-issuer.jetstack.io
   names:
     kind: GoogleCASClusterIssuer
     listKind: GoogleCASClusterIssuerList

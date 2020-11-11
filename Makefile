@@ -1,6 +1,6 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= quay.io/jetstack/cert-manager-google-cas-issuer:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -11,15 +11,15 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-all: manager
+all: google-cas-issuer
 
 # Run tests
 test: generate fmt vet manifests
 	go test ./... -coverprofile cover.out
 
-# Build manager binary
-manager: generate fmt vet
-	go build -o bin/manager main.go
+# Build google-cas-issuer binary
+google-cas-issuer: generate fmt vet
+	go build -o bin/google-cas-issuer main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests

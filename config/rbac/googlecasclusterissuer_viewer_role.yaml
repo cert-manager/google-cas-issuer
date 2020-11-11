@@ -5,7 +5,7 @@ metadata:
   name: googlecasclusterissuer-viewer-role
 rules:
 - apiGroups:
-  - issuers.jetstack.io
+  - cas-issuer.jetstack.io
   resources:
   - googlecasclusterissuers
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - issuers.jetstack.io
+  - cas-issuer.jetstack.io
   resources:
   - googlecasclusterissuers/status
   verbs:

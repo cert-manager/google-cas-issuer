@@ -1,4 +1,4 @@
-apiVersion: issuers.jetstack.io/v1alpha1
+apiVersion: cas-issuer.jetstack.io/v1alpha1
 kind: GoogleCASClusterIssuer
 metadata:
   name: googlecasclusterissuer-sample
@@ -8,5 +8,4 @@ spec:
   certificateAuthorityID: demo-root
   credentials:
     name: "googlesa"
-    namespace: "default"
     key: "jetstack-cas-b2a950e42388.json"

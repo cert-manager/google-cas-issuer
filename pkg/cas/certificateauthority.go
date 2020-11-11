@@ -20,12 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/uuid"
 	"google.golang.org/api/iterator"
 	casapi "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
-	"time"
 )
 
 // CreateCAOptions are options for CreateCA

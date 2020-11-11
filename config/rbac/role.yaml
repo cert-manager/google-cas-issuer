@@ -22,6 +22,46 @@ rules:
   - list
   - watch
 - apiGroups:
+  - cas-issuer.jetstack.io
+  resources:
+  - googlecasclusterissuers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cas-issuer.jetstack.io
+  resources:
+  - googlecasclusterissuers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - cas-issuer.jetstack.io
+  resources:
+  - googlecasissuers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cas-issuer.jetstack.io
+  resources:
+  - googlecasissuers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - cert-manager.io
   resources:
   - certificaterequests
@@ -34,46 +74,6 @@ rules:
   - cert-manager.io
   resources:
   - certificaterequests/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - issuers.jetstack.io
-  resources:
-  - googlecasclusterissuers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - issuers.jetstack.io
-  resources:
-  - googlecasclusterissuers/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - issuers.jetstack.io
-  resources:
-  - googlecasissuers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - issuers.jetstack.io
-  resources:
-  - googlecasissuers/status
   verbs:
   - get
   - patch

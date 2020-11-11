@@ -6,18 +6,19 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
-  name: googlecasissuers.cas-issuer.jetstack.io
+  name: googlecasclusterissuers.cas-issuer.jetstack.io
 spec:
   group: cas-issuer.jetstack.io
   names:
-    kind: GoogleCASIssuer
-    listKind: GoogleCASIssuerList
-    plural: googlecasissuers
-    singular: googlecasissuer
-  scope: Namespaced
+    kind: GoogleCASClusterIssuer
+    listKind: GoogleCASClusterIssuerList
+    plural: googlecasclusterissuers
+    singular: googlecasclusterissuer
+  scope: Cluster
   validation:
     openAPIV3Schema:
-      description: GoogleCASIssuer is the Schema for the googlecasissuers API
+      description: GoogleCASClusterIssuer is the Schema for the googlecasclusterissuers
+        API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -43,12 +44,13 @@ spec:
                 contains Google Service Account Credentials
               properties:
                 key:
-                  description: The key of the secret to select from. Must be a valid
-                    secret key.
+                  description: The key of the entry in the Secret resource's `data`
+                    field to be used. Some instances of this field may be defaulted,
+                    in others it may be required.
                   type: string
                 name:
-                  description: The name of the secret in the pod's namespace to select
-                    from.
+                  description: 'Name of the resource being referred to. More info:
+                    https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                   type: string
               required:
               - name

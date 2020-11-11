@@ -27,11 +27,12 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	casapi "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
+
+	casapi "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
 )
 
 // unitTestClient is a pretend CAS signer for running unit tests offline

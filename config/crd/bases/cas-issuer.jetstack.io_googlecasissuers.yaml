@@ -43,12 +43,13 @@ spec:
                 contains Google Service Account Credentials
               properties:
                 key:
-                  description: The key of the secret to select from. Must be a valid
-                    secret key.
+                  description: The key of the entry in the Secret resource's `data`
+                    field to be used. Some instances of this field may be defaulted,
+                    in others it may be required.
                   type: string
                 name:
-                  description: The name of the secret in the pod's namespace to select
-                    from.
+                  description: 'Name of the resource being referred to. More info:
+                    https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                   type: string
               required:
               - name

@@ -5,7 +5,7 @@ metadata:
   name: googlecasclusterissuer-editor-role
 rules:
 - apiGroups:
-  - issuers.jetstack.io
+  - cas-issuer.jetstack.io
   resources:
   - googlecasclusterissuers
   verbs:
@@ -17,7 +17,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - issuers.jetstack.io
+  - cas-issuer.jetstack.io
   resources:
   - googlecasclusterissuers/status
   verbs:

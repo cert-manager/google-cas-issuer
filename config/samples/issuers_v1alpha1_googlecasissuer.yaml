@@ -1,4 +1,4 @@
-apiVersion: issuers.jetstack.io/v1alpha1
+apiVersion: cas-issuer.jetstack.io/v1alpha1
 kind: GoogleCASIssuer
 metadata:
   name: googlecasissuer-sample

@@ -18,10 +18,11 @@ package cas
 
 import (
 	"context"
+	"time"
+
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/google/uuid"
 	casapi "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
-	"time"
 )
 
 // CreateCertificateOptions are options passed to CreateCertificate

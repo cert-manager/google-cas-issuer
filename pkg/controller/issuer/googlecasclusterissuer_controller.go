@@ -14,20 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package issuer
 
 import (
 	"context"
-	"errors"
-	"github.com/jetstack/google-cas-issuer/util/cas"
-	"google.golang.org/api/option"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,8 +40,8 @@ type GoogleCASClusterIssuerReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=issuers.jetstack.io,resources=googlecasclusterissuers,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=issuers.jetstack.io,resources=googlecasclusterissuers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=cas-issuer.jetstack.io,resources=googlecasclusterissuers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cas-issuer.jetstack.io,resources=googlecasclusterissuers/status,verbs=get;update;patch
 
 func (r *GoogleCASClusterIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
@@ -54,42 +49,10 @@ func (r *GoogleCASClusterIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Res
 	issuer := issuersv1alpha1.GoogleCASClusterIssuer{}
 
 	if err := r.Client.Get(ctx, req.NamespacedName, &issuer); err != nil {
-		log.Error(err, "failed to retrieve incoming Issuer resource")
+		log.Error(err, "failed to retrieve incoming ClusterIssuer resource")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
-	var secret corev1.Secret
-	if len(issuer.Spec.Credentials.Name) > 0 && len(issuer.Spec.Credentials.Key) > 0 && len(issuer.Spec.Credentials.Namespace) > 0 {
-		secretNamespaceName := types.NamespacedName{
-			Namespace: issuer.Spec.Credentials.Namespace,
-			Name:      issuer.Spec.Credentials.Name,
-		}
-		if err := r.Client.Get(ctx, secretNamespaceName, &secret); err != nil {
-			r.setStatusCondition(ctx, log, &issuer, issuersv1alpha1.IssuerConditionReady, issuersv1alpha1.ConditionFalse, "SecretNotFound", "Secret credentials were specified, but the Secret was not found")
-			return ctrl.Result{}, err
-		}
-		credentials, exists := secret.Data[issuer.Spec.Credentials.Key]
-		if !exists {
-			r.setStatusCondition(ctx, log, &issuer, issuersv1alpha1.IssuerConditionReady, issuersv1alpha1.ConditionFalse, "SecretKeyNotFound", "Secret credentials were specified, but the Secret did not contain the specified key")
-			return ctrl.Result{}, errors.New("invalid key specified")
-		}
-		casClient, err := cas.New(option.WithCredentialsJSON(credentials))
-		if err != nil {
-			r.setStatusCondition(ctx, log, &issuer, issuersv1alpha1.IssuerConditionReady, issuersv1alpha1.ConditionFalse, "CASError", "Cas error: "+err.Error())
-			return ctrl.Result{}, err
-		}
-		ClusterIssuers.Store(req.NamespacedName, casClient)
-	} else {
-		casClient, err := cas.New()
-		if err != nil {
-			r.setStatusCondition(ctx, log, &issuer, issuersv1alpha1.IssuerConditionReady, issuersv1alpha1.ConditionFalse, "CASError", "Cas error: "+err.Error())
-			return ctrl.Result{}, err
-		}
-		ClusterIssuers.Store(req.NamespacedName, casClient)
-	}
-	r.setStatusCondition(ctx, log, &issuer, issuersv1alpha1.IssuerConditionReady, issuersv1alpha1.ConditionTrue, "Ready", "CAS Client is ready to issue certs")
-
-	return ctrl.Result{}, nil
+	return reconcile(ctx, log, r.Client, req, issuer.Spec)
 }
 
 func (r *GoogleCASClusterIssuerReconciler) setStatusCondition(ctx context.Context,

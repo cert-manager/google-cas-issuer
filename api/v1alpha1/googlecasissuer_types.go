@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	cmmetav1 "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -39,7 +40,7 @@ type GoogleCASIssuerSpec struct {
 
 	// Credentials is a reference to a Kubernetes Secret Key that contains Google Service Account Credentials
 	// +optional
-	Credentials SecretKeySelector `json:"credentials,omitempty"`
+	Credentials cmmetav1.SecretKeySelector `json:"credentials,omitempty"`
 }
 
 // GoogleCASIssuerStatus defines the observed state of GoogleCASIssuer
@@ -69,15 +70,6 @@ type GoogleCASIssuerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []GoogleCASIssuer `json:"items"`
-}
-
-// SecretKeySelector contains the reference to a secret.
-type SecretKeySelector struct {
-	// The name of the secret in the pod's namespace to select from.
-	Name string `json:"name"`
-
-	// The key of the secret to select from. Must be a valid secret key.
-	Key string `json:"key,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=Ready
