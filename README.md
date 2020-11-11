@@ -2,7 +2,7 @@
 
 This repository contains an [external Issuer](https://cert-manager.io/docs/contributing/external-issuers/)
 for cert-manager that issues certificates using Google's private
-[certificate authority service](https://cloud.google.com/certificate-authority-service/).
+[Certificate Authority Service](https://cloud.google.com/certificate-authority-service/).
 
 # Usage
 
