@@ -80,7 +80,7 @@ Create a root CA from the Google dashboard, or other API - refer to the
 Create an Issuer or ClusterIssuer:
 
 ```yaml
-apiVersion: issuers.jetstack.io/v1alpha1
+apiVersion: cas-issuer.jetstack.io/v1alpha1
 kind: GoogleCASIssuer
 metadata:
   name: googlecasissuer-sample
@@ -97,7 +97,7 @@ spec:
 or
 
 ```yaml
-apiVersion: issuers.jetstack.io/v1alpha1
+apiVersion: cas-issuer.jetstack.io/v1alpha1
 kind: GoogleCASClusterIssuer
 metadata:
   name: googlecasclusterissuer-sample
