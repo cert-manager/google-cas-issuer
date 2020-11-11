@@ -74,6 +74,70 @@ then store it in a Kubernetes secret.
 
 ## Issuer setup
 
+### Kubernetes RBAC rules
+
+Examine the ClusterRole and ClusterRolebinding in `config/rbac/role.yaml` and
+`configrbac/role_binding.yaml`. By default, these give the default Kubernetes service
+account in the cert-manager namespace all the necessary permissions. Customise these to your needs.
+
+```shell
+kubectl apply -f config/rbac/role.yaml
+kubectl apply -f config/rbac/role_binding.yaml
+```
+
+### Build and Deploy the controller
+
+To build the image, ensure you have
+[kubebuilder inbstalled](https://book.kubebuilder.io/quick-start.html#installation).
+
+Build the docker image:
+
+```shell
+make docker-build
+```
+
+Push the docker image or load it into kind for testing
+```shell
+make docker-push || kind load docker-image quay.io/jetstack/cert-manager-google-cas-issuer:latest
+```
+
+Deploy the issuer controller:
+```shell
+cat <<EOF | kubectl apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: google-cas-issuer
+  namespace: cert-manager
+  labels:
+    app: google-cas-issuer
+spec:
+  selector:
+    matchLabels:
+      app: google-cas-issuer
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: google-cas-issuer
+    spec:
+      containers:
+      - image: quay.io/jetstack/cert-manager-google-cas-issuer:latest
+        imagePullPolicy: IfNotPresent
+        name: google-cas-issuer
+        resources:
+          limits:
+            cpu: 100m
+            memory: 30Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
+      terminationGracePeriodSeconds: 10
+EOF
+```
+
+### Configure Issuer
+
 Create a root CA from the Google dashboard, or other API - refer to the
 [official documentation](https://cloud.google.com/certificate-authority-service/docs/creating-certificate-authorities)
 
@@ -134,7 +198,7 @@ spec:
   renewBefore: 8h
   # Important: Ensure the issuerRef is set to the issuer or cluster issuer configured earlier
   issuerRef:
-    group: issuers.jetstack.io
+    group: cas-issuer.jetstack.io
     kind: GoogleCASClusterIssuer
     name: googlecasclusterissuer-sample
 ```
