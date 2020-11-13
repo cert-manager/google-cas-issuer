@@ -41,7 +41,7 @@ kubectl apply -f config/rbac/role_binding.yaml
 #### Build and deploy the controller
 
 To build the image, ensure you have
-[kubebuilder inbstalled](https://book.kubebuilder.io/quick-start.html#installation).
+[kubebuilder installed](https://book.kubebuilder.io/quick-start.html#installation).
 
 Build the docker image:
 
