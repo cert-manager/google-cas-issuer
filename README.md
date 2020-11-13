@@ -27,7 +27,7 @@ kubectl apply -k config/crd
 
 ## IAM setup
 
-Firstly, create a Google Cloud IAM service account.
+Firstly, create a Google Cloud IAM service account. This service account will be used by the CAS Issuer to access the Google Private CA APIs.
 
 ```shell
 gcloud iam service-accounts create my-sa
