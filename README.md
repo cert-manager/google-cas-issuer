@@ -8,15 +8,18 @@ for cert-manager that issues certificates using Google's private
 
 ## Prerequisites
 
+### Private CA-enabled GCP project
+
 Enable the private CA API in your GCP project by following the
 [official documentation](https://cloud.google.com/certificate-authority-service/docs/quickstart).
 
-Install cert-manager
-```shell
-kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.0.4/cert-manager.yaml --validate=false
-```
+### cert-manager
 
-Install the CAS Issuer CRDs in `config/crd`. These manifests use kustomization (hence the `-k` option).
+If not already running in the cluster, install cert-manager by following the [official documentation](https://cert-manager.io/docs/installation/kubernetes/).
+
+### Google CAS Issuer for cert-manager
+
+Install the Google CAS Issuer CRDs in `config/crd`. These manifests use kustomization (hence the `-k` option).
 
 ```shell
 kubectl apply -k config/crd
