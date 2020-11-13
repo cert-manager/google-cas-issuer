@@ -37,11 +37,10 @@ Firstly, create a Google Cloud IAM service account. This service account will be
 gcloud iam service-accounts create my-sa
 ```
 
-Apply the appropriate IAM bindings to this account. This example permits the least privilege, to create  certficiates (ie `privateca.certificates.create`), but you can use other roles as necessary (see [Predefined Roles](https://cloud.google.com/certificate-authority-service/docs/reference/permissions-and-roles#predefined_roles) for more details).
+Apply the appropriate IAM bindings to this account. This example permits the least privilege, to create  certificates (ie `privateca.certificates.create`) from a specified suboordinate CA (`my-sub-ca`), but you can use other roles as necessary (see [Predefined Roles](https://cloud.google.com/certificate-authority-service/docs/reference/permissions-and-roles#predefined_roles) for more details).
 
 ```shell
-gcloud iam service-accounts add-iam-policy-binding my-sa@project-id.iam.gserviceaccount.com \
---role=roles/privateca.certificateRequester
+gcloud beta privateca subordinates add-iam-policy-binding my-sub-ca --role=privateca.certificateRequester --member='serviceAccount:my-sa@project-id.iam.gserviceaccount.com'
 ```
 
 You can now create a service account key and download it to a local JSON file.
