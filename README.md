@@ -13,6 +13,10 @@ for cert-manager that issues certificates using Google's private
 Enable the private CA API in your GCP project by following the
 [official documentation](https://cloud.google.com/certificate-authority-service/docs/quickstart).
 
+### CAS-managed CAs
+
+Create Certificate Authorities (CAs) by following the [official documentation](https://cloud.google.com/certificate-authority-service/docs/creating-certificate-authorities). It is recommended to create subordinate CAs for signing leaf certificates.
+
 ### cert-manager
 
 If not already running in the cluster, install cert-manager by following the [official documentation](https://cert-manager.io/docs/installation/kubernetes/).
