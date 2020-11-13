@@ -114,12 +114,6 @@ Apply the appropriate IAM bindings to this account. This example permits the lea
 gcloud beta privateca subordinates add-iam-policy-binding my-sub-ca --role=privateca.certificateRequester --member='serviceAccount:my-sa@project-id.iam.gserviceaccount.com'
 ```
 
-You can now create a service account key and download it to a local JSON file.
-
-```shell
-gcloud iam service-accounts keys create project-name-keyid.json --iam-account my-sa@project-id.iam.gserviceaccount.com
-```
-
 #### Inside GKE with workload identity
 
 Ensure your cluster is set up with
@@ -145,10 +139,15 @@ kubectl annotate serviceaccount \
   iam.gke.io/gcp-service-account=my-sa@project-id.iam.gserviceaccount.com
 ```
 
-#### Outside GKE or in an unrelated GCP Project
+#### Outside GKE or in an unrelated GCP project
 
-Download the private key in JSON format for the service account you created earlier,
-then store it in a Kubernetes secret.
+Create a key for the service account and download it to a local JSON file.
+
+```shell
+gcloud iam service-accounts keys create project-name-keyid.json --iam-account my-sa@project-id.iam.gserviceaccount.com
+```
+
+The service account key should be stored in a Kubernetes secret in your cluster so it can be accessed by the CAS Issuer controller.
 
 ```shell
  kubectl -n cert-manager create secret generic googlesa --from-file project-name-keyid.json 
