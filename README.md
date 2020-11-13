@@ -149,10 +149,7 @@ EOF
 
 ### Configure Issuer
 
-Create a root CA from the Google dashboard, or other API - refer to the
-[official documentation](https://cloud.google.com/certificate-authority-service/docs/creating-certificate-authorities)
-
-Create an Issuer or ClusterIssuer:
+cert-manager is configured for Google CAS using either a `GoogleCASIssuer` (namespace-scoped) or a `GoogleCASClusterIssuer` (cluster-wide).
 
 ```yaml
 apiVersion: cas-issuer.jetstack.io/v1alpha1
@@ -162,11 +159,15 @@ metadata:
 spec:
   project: project-name
   location: europe-west1
-  certificateAuthorityID: demo-root
+  certificateAuthorityID: my-sub-ca
   # credentials are optional if workload identity is enabled
   credentials:
     name: "googlesa"
     key: "project-name-keyid.json"
+```
+
+```shell
+kubectl apply -f googlecasissuer-sample.yaml
 ```
 
 or
@@ -179,14 +180,18 @@ metadata:
 spec:
   project: project-name
   location: europe-west1
-  certificateAuthorityID: demo-root
+  certificateAuthorityID: my-sub-ca
   # credentials are optional if workload identity is enabled
   credentials:
     name: "googlesa"
     key: "project-name-keyid.json"
 ```
 
-Create certificates as normal, but ensure the IssuerRef is set to
+```shell
+kubectl apply -f googlecasclusterissuer-sample.yaml
+```
+
+You can now create certificates as normal, but ensure the `IssuerRef` is set to the Issuer created in the previous step.
 
 ```yaml
 apiVersion: cert-manager.io/v1
@@ -212,4 +217,19 @@ spec:
     group: cas-issuer.jetstack.io
     kind: GoogleCASClusterIssuer
     name: googlecasclusterissuer-sample
+```
+
+```shell
+kubectl apply -f demo-certificate.yaml
+```
+
+In short time, the certificate will be reuested and made available to the cluster.
+
+```shell
+kubectl get certificates,secret
+NAME                                          READY   SECRET         AGE
+certificate.cert-manager.io/bar-certificate   True    demo-cert-tls  1m
+
+NAME                                     TYPE                                  DATA   AGE
+secret/demo-cert-tls                     kubernetes.io/tls                     3      1m
 ```
