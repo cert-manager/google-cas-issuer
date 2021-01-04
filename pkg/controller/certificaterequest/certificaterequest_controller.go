@@ -21,6 +21,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
+
 	"github.com/go-logr/logr"
 	apiutil "github.com/jetstack/cert-manager/pkg/api/util"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
@@ -32,7 +34,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"math/rand"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -110,6 +111,7 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 		issuer := api.GoogleCASIssuer{}
 		issuerNamespaceName := types.NamespacedName{
 			Namespace: req.Namespace,
+			Name:      cr.Spec.IssuerRef.Name,
 		}
 		if err := r.Client.Get(ctx, issuerNamespaceName, &issuer); err != nil {
 			log.Error(err, "failed to retrieve GoogleCASIssuer resource", "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
