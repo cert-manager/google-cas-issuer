@@ -109,9 +109,8 @@ func root() error {
 		return err
 	}
 	if err = (&certificaterequest.CertificateRequestReconciler{
-		Client:   mgr.GetClient(),
-		Log:      ctrl.Log.WithName("controller").WithName("CertificateRequest"),
-		Recorder: mgr.GetEventRecorderFor("certificaterequests-controller"),
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controller").WithName("CertificateRequest"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CertificateRequest")
 		return err

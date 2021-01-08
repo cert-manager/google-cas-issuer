@@ -50,9 +50,7 @@ type GoogleCASIssuerReconciler struct {
 // +kubebuilder:rbac:groups=cas-issuer.jetstack.io,resources=googlecasissuers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
-
-func (r *GoogleCASIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+func (r *GoogleCASIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("googlecasissuer", req.NamespacedName)
 
 	issuer := issuersv1alpha1.GoogleCASIssuer{}

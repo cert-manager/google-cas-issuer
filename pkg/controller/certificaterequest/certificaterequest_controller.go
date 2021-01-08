@@ -24,117 +24,139 @@ import (
 	"math/rand"
 
 	"github.com/go-logr/logr"
-	apiutil "github.com/jetstack/cert-manager/pkg/api/util"
+	cmutil "github.com/jetstack/cert-manager/pkg/api/util"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	api "github.com/jetstack/google-cas-issuer/api/v1alpha1"
 	"github.com/jetstack/google-cas-issuer/pkg/cas"
 	issuerctrl "github.com/jetstack/google-cas-issuer/pkg/controller/issuer"
-	core "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	casapi "github.com/jetstack/google-cas-issuer/api/v1alpha1"
 )
 
 // CertificateRequestReconciler reconciles CSRs
 type CertificateRequestReconciler struct {
 	client.Client
-	Log      logr.Logger
-	Recorder record.EventRecorder
+	Log logr.Logger
 }
 
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificaterequests,verbs=get;list;watch;update
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificaterequests/status,verbs=get;update;patch
-
-func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	log := r.Log.WithValues("certificaterequest", req.NamespacedName)
 
 	// Fetch the CertificateRequest resource being reconciled.
 	// Just ignore the request if the certificate request has been deleted.
-	cr := new(cmapi.CertificateRequest)
-	if err := r.Client.Get(ctx, req.NamespacedName, cr); err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
+	var certificateRequest cmapi.CertificateRequest
+	if err := r.Get(ctx, req.NamespacedName, &certificateRequest); err != nil {
+		if err := client.IgnoreNotFound(err); err != nil {
+			log.Info("Certificate Request not found, ignoring", "cr", req.NamespacedName)
 		}
-
-		log.Error(err, "failed to retrieve CertificateRequest resource")
 		return ctrl.Result{}, err
 	}
 
 	// Check the CertificateRequest's issuerRef and if it does not match the api
 	// group name, log a message at a debug level and stop processing.
-	if cr.Spec.IssuerRef.Group != "" && cr.Spec.IssuerRef.Group != api.GroupVersion.Group {
-		log.V(4).Info("resource does not specify an issuerRef group name that we are responsible for", "group", cr.Spec.IssuerRef.Group)
+	if certificateRequest.Spec.IssuerRef.Group != casapi.GroupVersion.Group {
+		log.Info("CR is for a different Issuer", "group", certificateRequest.Spec.IssuerRef.Group)
 		return ctrl.Result{}, nil
 	}
 
-	// If the certificate data is already set then we skip this request as it
-	// has already been completed in the past.
-	if len(cr.Status.Certificate) > 0 {
-		log.V(4).Info("existing certificate data found in status, skipping already completed CertificateRequest")
+	// Ignore already Ready CRs
+	if cmutil.CertificateRequestHasCondition(&certificateRequest, cmapi.CertificateRequestCondition{
+		Type:   cmapi.CertificateRequestConditionReady,
+		Status: cmmeta.ConditionTrue,
+	}) {
+		log.Info("CertificateRequest is Ready, Ignoring.", "certificaterequest", req.NamespacedName)
+		return ctrl.Result{}, nil
+	}
+
+	// We now have a CertificateRequest that belongs to us so we are responsible
+	// for updating its Ready condition.
+	setReadyCondition := func(status cmmeta.ConditionStatus, reason, message string) {
+		cmutil.SetCertificateRequestCondition(
+			&certificateRequest,
+			cmapi.CertificateRequestConditionReady,
+			status,
+			reason,
+			message,
+		)
+	}
+
+	// Always attempt to update the Ready condition
+	defer func() {
+		if err != nil {
+			setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, err.Error())
+		}
+		if updateErr := r.Status().Update(ctx, &certificateRequest); updateErr != nil {
+			err = utilerrors.NewAggregate([]error{err, updateErr})
+			result = ctrl.Result{}
+		}
+	}()
+
+	// Add a Ready condition if one does not already exist
+	if ready := cmutil.GetCertificateRequestCondition(&certificateRequest, cmapi.CertificateRequestConditionReady); ready == nil {
+		log.Info("Initialising Ready condition")
+		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Initialising")
+		// re-reconcile
 		return ctrl.Result{}, nil
 	}
 
 	var googleCASClient cas.Client
 	var parent string
 
-	switch cr.Spec.IssuerRef.Kind {
+	switch certificateRequest.Spec.IssuerRef.Kind {
 	case "GoogleCASClusterIssuer":
 		issuer := api.GoogleCASClusterIssuer{}
 		issuerNamespaceName := types.NamespacedName{
-			Name: cr.Spec.IssuerRef.Name,
+			Name: certificateRequest.Spec.IssuerRef.Name,
 		}
 		if err := r.Client.Get(ctx, issuerNamespaceName, &issuer); err != nil {
-			log.Error(err, "failed to retrieve GoogleCASClusterIssuer resource", "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
-			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to retrieve CAS Issuer resource %s: %v", issuerNamespaceName, err)
+			log.Error(err, "failed to retrieve GoogleCASClusterIssuer resource", "namespace", req.Namespace, "name", certificateRequest.Spec.IssuerRef.Name)
 			return ctrl.Result{}, err
 		}
 		parent = fmt.Sprintf("projects/%s/locations/%s/certificateAuthorities/%s", issuer.Spec.Project, issuer.Spec.Location, issuer.Spec.CertificateAuthorityID)
 		casClient, ok := issuerctrl.ClusterIssuers.Load(issuerNamespaceName)
 		if !ok {
 			err := errors.New("couldn't retrieve CAS ClusterIssuer client - it probably hasn't reconciled yet")
-			log.Error(err, err.Error(), "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
-			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Couldn't retrieve CAS Issuer client %s: %v", issuerNamespaceName, errors.New("couldn't retrieve CAS Issuer client"))
+			log.Error(err, err.Error(), "namespace", req.Namespace, "name", certificateRequest.Spec.IssuerRef.Name)
 			return ctrl.Result{}, err
 		}
 		googleCASClient, ok = casClient.(cas.Client)
 		if !ok {
 			err := errors.New("Retrieved a non-CAS client from the cache, this should never happen")
-			log.Error(err, err.Error(), "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
-			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Couldn't retrieve CAS Issuer client %s: %v", issuerNamespaceName, errors.New("couldn't retrieve CAS Issuer client"))
+			log.Error(err, err.Error(), "namespace", req.Namespace, "name", certificateRequest.Spec.IssuerRef.Name)
 			return ctrl.Result{}, err
 		}
 	case "GoogleCASIssuer":
 		issuer := api.GoogleCASIssuer{}
 		issuerNamespaceName := types.NamespacedName{
 			Namespace: req.Namespace,
-			Name:      cr.Spec.IssuerRef.Name,
+			Name:      certificateRequest.Spec.IssuerRef.Name,
 		}
 		if err := r.Client.Get(ctx, issuerNamespaceName, &issuer); err != nil {
-			log.Error(err, "failed to retrieve GoogleCASIssuer resource", "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
-			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Failed to retrieve CAS Issuer resource %s: %v", issuerNamespaceName, err)
 			return ctrl.Result{}, err
 		}
 		parent = fmt.Sprintf("projects/%s/locations/%s/certificateAuthorities/%s", issuer.Spec.Project, issuer.Spec.Location, issuer.Spec.CertificateAuthorityID)
 		casClient, ok := issuerctrl.Issuers.Load(issuerNamespaceName)
 		if !ok {
 			err := errors.New("couldn't retrieve CAS Issuer client - it probably hasn't reconciled yet")
-			log.Error(err, err.Error(), "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
-			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Couldn't retrieve CAS Issuer client %s: %v", issuerNamespaceName, errors.New("couldn't retrieve CAS Issuer client"))
+			log.Error(err, err.Error(), "namespace", req.Namespace, "name", certificateRequest.Spec.IssuerRef.Name)
 			return ctrl.Result{}, err
 		}
 		googleCASClient, ok = casClient.(cas.Client)
 		if !ok {
 			err := errors.New("Retrieved a non-CAS client from the cache, this should never happen")
-			log.Error(err, err.Error(), "namespace", req.Namespace, "name", cr.Spec.IssuerRef.Name)
-			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Couldn't retrieve CAS Issuer client %s: %v", issuerNamespaceName, errors.New("couldn't retrieve CAS Issuer client"))
+			log.Error(err, err.Error(), "namespace", req.Namespace, "name", certificateRequest.Spec.IssuerRef.Name)
 			return ctrl.Result{}, err
 		}
 	default:
-		log.Info("Noticed unhandled kind in Certificate Request:", "kind", cr.Spec.IssuerRef.Kind)
+		log.Info("Noticed unhandled kind in Certificate Request:", "kind", certificateRequest.Spec.IssuerRef.Kind)
 		return ctrl.Result{}, nil
 	}
 
@@ -142,14 +164,13 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 	opts := &cas.CreateCertificateOptions{
 		Parent:        parent,
 		CertificateID: fmt.Sprintf("cert-manager-%d", rand.Int()),
-		CSR:           cr.Spec.Request,
-		Expiry:        cr.Spec.Duration.Duration,
+		CSR:           certificateRequest.Spec.Request,
+		Expiry:        certificateRequest.Spec.Duration.Duration,
 	}
 
 	cert, chain, err := googleCASClient.CreateCertificate(opts)
 	if err != nil {
-		log.Error(err, "Couldn't sign certificate", "namespace", req.Namespace, "name", cr.Name, "err", err)
-		_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Couldn't sign certificate %s: %v", cr.Name, err)
+		log.Error(err, "Couldn't sign certificate", "namespace", req.Namespace, "name", certificateRequest.Name, "err", err)
 		return ctrl.Result{}, err
 	}
 
@@ -158,24 +179,11 @@ func (r *CertificateRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result,
 	for _, c := range chain[:len(chain)-1] {
 		certbuf.WriteString(c)
 	}
-	cr.Status.Certificate = certbuf.Bytes()
-	cr.Status.CA = []byte(chain[len(chain)-1])
+	certificateRequest.Status.Certificate = certbuf.Bytes()
+	certificateRequest.Status.CA = []byte(chain[len(chain)-1])
 
-	return ctrl.Result{}, r.setStatus(ctx, cr, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
-}
-
-func (r *CertificateRequestReconciler) setStatus(ctx context.Context, cr *cmapi.CertificateRequest, status cmmeta.ConditionStatus, reason, message string, args ...interface{}) error {
-	completeMessage := fmt.Sprintf(message, args...)
-	apiutil.SetCertificateRequestCondition(cr, cmapi.CertificateRequestConditionReady, status, reason, completeMessage)
-
-	// Fire an Event to additionally inform users of the change
-	eventType := core.EventTypeNormal
-	if status == cmmeta.ConditionFalse {
-		eventType = core.EventTypeWarning
-	}
-	r.Recorder.Event(cr, eventType, reason, completeMessage)
-
-	return r.Client.Status().Update(ctx, cr)
+	setReadyCondition(cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager initializes the CertificateRequest controller into the
