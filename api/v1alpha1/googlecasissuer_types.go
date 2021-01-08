@@ -53,7 +53,6 @@ type GoogleCASIssuerStatus struct {
 }
 
 // +kubebuilder:object:root=true
-
 // GoogleCASIssuer is the Schema for the googlecasissuers API
 type GoogleCASIssuer struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -64,7 +63,6 @@ type GoogleCASIssuer struct {
 }
 
 // +kubebuilder:object:root=true
-
 // GoogleCASIssuerList contains a list of GoogleCASIssuer
 type GoogleCASIssuerList struct {
 	metav1.TypeMeta `json:",inline"`

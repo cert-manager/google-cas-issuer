@@ -25,7 +25,6 @@ import (
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
-
 // GoogleCASClusterIssuer is the Schema for the googlecasclusterissuers API
 type GoogleCASClusterIssuer struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -36,7 +35,6 @@ type GoogleCASClusterIssuer struct {
 }
 
 // +kubebuilder:object:root=true
-
 // GoogleCASClusterIssuerList contains a list of GoogleCASClusterIssuer
 type GoogleCASClusterIssuerList struct {
 	metav1.TypeMeta `json:",inline"`
