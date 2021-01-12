@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"cloud.google.com/go/security/privateca/apiv1beta1"
@@ -65,7 +66,7 @@ func (c *casSigner) Sign(csr []byte, expiry time.Duration) (cert []byte, ca []by
 	}
 	createCertificateRequest := &casapi.CreateCertificateRequest{
 		Parent:        c.parent,
-		CertificateId: c.certificateID,
+		CertificateId: fmt.Sprintf("cert-manager-%d", rand.Int()),
 		Certificate: &casapi.Certificate{
 			CertificateConfig: &casapi.Certificate_PemCsr{
 				PemCsr: string(csr),
@@ -118,7 +119,7 @@ func (c *casSigner) createCasClient() (*privateca.CertificateAuthorityClient, er
 		}
 		credentials, exists := secret.Data[c.spec.Credentials.Key]
 		if !exists {
-			return nil, fmt.Errorf("no credentials found at in secret %s under %s", secretNamespaceName, c.spec.Credentials.Key)
+			return nil, fmt.Errorf("no credentials found in secret %s under %s", secretNamespaceName, c.spec.Credentials.Key)
 		}
 		c, err := privateca.NewCertificateAuthorityClient(c.ctx, option.WithCredentialsJSON(credentials))
 		if err != nil {

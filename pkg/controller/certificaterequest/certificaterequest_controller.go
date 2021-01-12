@@ -18,10 +18,15 @@ package certificaterequest
 
 import (
 	"context"
+	"time"
+
 	"github.com/go-logr/logr"
 	cmutil "github.com/jetstack/cert-manager/pkg/api/util"
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
+	"github.com/jetstack/google-cas-issuer/pkg/cas"
+	"github.com/spf13/viper"
+	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -98,8 +103,60 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	// Sign certificate
+	// Get (cluster)issuer
+	issuerGroupVersionKind := casapi.GroupVersion.WithKind(certificateRequest.Spec.IssuerRef.Kind)
+	issuerGeneric, err := r.Scheme().New(issuerGroupVersionKind)
+	var spec *casapi.GoogleCASIssuerSpec
+	var ns string
+	if err != nil {
+		log.Error(err, "unknown issuer kind", "kind", certificateRequest.Spec.IssuerRef.Kind)
+		return ctrl.Result{}, nil
+	}
+	switch t := issuerGeneric.(type) {
+	case *casapi.GoogleCASIssuer:
+		err := r.Client.Get(ctx, types.NamespacedName{
+			Namespace: req.NamespacedName.Namespace,
+			Name:      certificateRequest.Spec.IssuerRef.Name,
+		}, t)
+		if err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				log.Info("ignoring not found")
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, err
+		}
+		spec = &t.Spec
+		ns = req.NamespacedName.Namespace
+	case *casapi.GoogleCASClusterIssuer:
+		err := r.Client.Get(ctx, types.NamespacedName{
+			Name: certificateRequest.Spec.IssuerRef.Name,
+		}, t)
+		if err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				log.Info("ignoring not found")
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, err
+		}
+		spec = &t.Spec
+		ns = viper.GetString("cluster-resource-namespace")
+	default:
+		log.Error(err, "unknown issuer type", "object", t)
+		return ctrl.Result{}, nil
+	}
+	signer, err := cas.NewSigner(ctx, spec, r.Client, ns)
+	if err != nil {
+		log.Error(err, "couldn't construct signer for certificate", "cr", req.NamespacedName)
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+	}
 
+	// Sign certificate
+	cert, ca, err := signer.Sign(certificateRequest.Spec.Request, certificateRequest.Spec.Duration.Duration)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	certificateRequest.Status.CA = ca
+	certificateRequest.Status.Certificate = cert
 	setReadyCondition(cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
 	return ctrl.Result{}, nil
 }
