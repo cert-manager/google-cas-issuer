@@ -87,7 +87,7 @@ func (r *GoogleCASIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if err != nil {
 		log.Info("Issuer is misconfigured", "info", err.Error())
 		setReadyCondition(status, issuersv1alpha1.ConditionFalse, "issuer is misconfigured", err.Error())
-		return ctrl.Result{RequeueAfter: 10*time.Second}, nil
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	log.Info("reconciled issuer", "kind", issuer.GetObjectKind())
@@ -151,7 +151,7 @@ func setReadyCondition(status *issuersv1alpha1.GoogleCASIssuerStatus, conditionS
 	ready.Reason = reason
 	ready.Message = message
 
-	for i, c := range status.Conditions{
+	for i, c := range status.Conditions {
 		if c.Type == issuersv1alpha1.IssuerConditionReady {
 			status.Conditions[i] = *ready
 			return

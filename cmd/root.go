@@ -95,26 +95,26 @@ func root() error {
 
 	// Start Controllers
 	if err = (&issuer.GoogleCASIssuerReconciler{
-		"GoogleCASIssuer",
-		mgr.GetClient(),
-		ctrl.Log.WithName("controller").WithName("GoogleCASIssuer"),
-		mgr.GetScheme(),
+		Kind:   "GoogleCASIssuer",
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controller").WithName("GoogleCASIssuer"),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GoogleCASIssuer")
 		return err
 	}
 	if err = (&issuer.GoogleCASIssuerReconciler{
-		"GoogleCASClusterIssuer",
-		mgr.GetClient(),
-		ctrl.Log.WithName("controller").WithName("GoogleCASClusterIssuer"),
-		mgr.GetScheme(),
+		Kind:   "GoogleCASClusterIssuer",
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controller").WithName("GoogleCASClusterIssuer"),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GoogleCASClusterIssuer")
 		return err
 	}
 	if err = (&certificaterequest.CertificateRequestReconciler{
-		mgr.GetClient(),
-		ctrl.Log.WithName("controller").WithName("CertificateRequest"),
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controller").WithName("CertificateRequest"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CertificateRequest")
 		return err

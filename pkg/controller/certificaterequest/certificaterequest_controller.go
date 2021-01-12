@@ -100,7 +100,6 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Sign certificate
 
-
 	setReadyCondition(cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
 	return ctrl.Result{}, nil
 }
