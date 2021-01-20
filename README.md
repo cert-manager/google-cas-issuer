@@ -231,7 +231,7 @@ spec:
 kubectl apply -f demo-certificate.yaml
 ```
 
-In short time, the certificate will be reuested and made available to the cluster.
+In short time, the certificate will be requested and made available to the cluster.
 
 ```shell
 kubectl get certificates,secret
