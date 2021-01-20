@@ -18,29 +18,24 @@ package issuer
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"github.com/go-logr/logr"
 	"github.com/jetstack/google-cas-issuer/pkg/cas"
 	"github.com/spf13/viper"
-	"google.golang.org/api/option"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sync"
-	"time"
-
-	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 
 	issuersv1alpha1 "github.com/jetstack/google-cas-issuer/api/v1alpha1"
 )
 
-// Issuers is a store for reconciled Issuers
-var Issuers *sync.Map
-
 // GoogleCASIssuerReconciler reconciles a GoogleCASIssuer object
 type GoogleCASIssuerReconciler struct {
+	// GoogleCASIssuer or GoogleCASClusterIssuer
+	Kind string
+
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
@@ -50,111 +45,116 @@ type GoogleCASIssuerReconciler struct {
 // +kubebuilder:rbac:groups=cas-issuer.jetstack.io,resources=googlecasissuers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
-
-func (r *GoogleCASIssuerReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
-	log := r.Log.WithValues("googlecasissuer", req.NamespacedName)
-
-	issuer := issuersv1alpha1.GoogleCASIssuer{}
-	if err := r.Client.Get(ctx, req.NamespacedName, &issuer); err != nil {
-		log.Error(err, "failed to retrieve incoming Issuer resource")
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+func (r *GoogleCASIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
+	log := r.Log.WithValues(r.Kind, req.NamespacedName)
+	issuer, err := r.getIssuer()
+	if err != nil {
+		log.Error(err, "invalid issuer type seen - ignoring")
+		return ctrl.Result{}, nil
 	}
-	return reconcile(ctx, log, r.Client, req, issuer.Spec)
-}
 
-func (r *GoogleCASIssuerReconciler) setStatusCondition(ctx context.Context,
-	log logr.Logger,
-	issuer *issuersv1alpha1.GoogleCASIssuer,
-	conditionType issuersv1alpha1.GoogleCASIssuerConditionType,
-	status issuersv1alpha1.ConditionStatus,
-	reason string,
-	message string) {
-	newCondition := issuersv1alpha1.GoogleCASIssuerCondition{
-		Type:    conditionType,
-		Status:  status,
-		Reason:  reason,
-		Message: message,
+	if err := r.Get(ctx, req.NamespacedName, issuer); err != nil {
+		if err := client.IgnoreNotFound(err); err != nil {
+			log.Error(err, "failed to retrieve incoming Issuer resource")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
-	nowTime := metav1.NewTime(time.Now())
-	newCondition.LastTransitionTime = &nowTime
-	// Search through existing conditions
-	for i, cond := range issuer.Status.Conditions {
-		// Skip unrelated conditions
-		if cond.Type != conditionType {
-			continue
-		}
 
-		// If this update doesn't contain a state transition, we don't update
-		// the conditions LastTransitionTime to Now()
-		if cond.Status == status {
-			newCondition.LastTransitionTime = cond.LastTransitionTime
-		} else {
-			log.Info("Updating last transition time for issuer "+issuer.Name, "condition", conditionType, "old_status", cond.Status, "new_status", status, "time", nowTime.Time)
-		}
-
-		// Overwrite the existing condition
-		issuer.Status.Conditions[i] = newCondition
-		if err := r.Client.Status().Update(ctx, issuer); err != nil {
-			log.Info("Couldn't update issuer condition:", "err", err)
-		}
-		return
+	spec, status, err := getIssuerSpecStatus(issuer)
+	if err != nil {
+		log.Error(err, "issuer is of unexpected type, ignoring")
+		return ctrl.Result{}, nil
 	}
+
+	// Always attempt to update the Ready condition
+	defer func() {
+		if err != nil {
+			setReadyCondition(status, issuersv1alpha1.ConditionFalse, "issuer failed to reconcile", err.Error())
+		}
+		if updateErr := r.Status().Update(ctx, issuer); updateErr != nil {
+			result = ctrl.Result{}
+		}
+	}()
+
+	ns := req.NamespacedName.Namespace
+	if len(ns) == 0 {
+		ns = viper.GetString("cluster-resource-namespace")
+	}
+
+	_, err = cas.NewSigner(ctx, spec, r.Client, ns)
+
+	if err != nil {
+		log.Info("Issuer is misconfigured", "info", err.Error())
+		setReadyCondition(status, issuersv1alpha1.ConditionFalse, "issuer is misconfigured", err.Error())
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+
+	log.Info("reconciled issuer", "kind", issuer.GetObjectKind())
+	setReadyCondition(status, issuersv1alpha1.ConditionTrue, "Successfully constructed CAS client", "")
+	return ctrl.Result{}, nil
 }
 
 func (r *GoogleCASIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	issuer, err := r.getIssuer()
+	if err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&issuersv1alpha1.GoogleCASIssuer{}).
+		For(issuer).
 		Complete(r)
 }
 
-// Reconcile is the shared reconciliation code between both the issuer and the cluster issuer.
-func reconcile(ctx context.Context, log logr.Logger, client client.Client, req ctrl.Request, spec issuersv1alpha1.GoogleCASIssuerSpec) (ctrl.Result, error) {
-	var secret corev1.Secret
-	if len(spec.Credentials.Name) > 0 && len(spec.Credentials.Key) > 0 {
-		secretNamespaceName := types.NamespacedName{
-			Namespace: req.Namespace,
-			Name:      spec.Credentials.Name,
-		}
-		if len(req.NamespacedName.Namespace) == 0 {
-			secretNamespaceName.Namespace = viper.GetString("cluster-resource-namespace")
-		}
-		if err := client.Get(ctx, secretNamespaceName, &secret); err != nil {
-			return ctrl.Result{}, err
-		}
-		credentials, exists := secret.Data[spec.Credentials.Key]
-		if !exists {
-			//r.setStatusCondition(ctx, log, &issuer, issuersv1alpha1.IssuerConditionReady, issuersv1alpha1.ConditionFalse, "SecretKeyNotFound", "Secret credentials were specified, but the Secret did not contain the specified key")
-			return ctrl.Result{}, errors.New("invalid key specified")
-		}
-		casClient, err := cas.New(option.WithCredentialsJSON(credentials))
-		if err != nil {
-			//r.setStatusCondition(ctx, log, &issuer, issuersv1alpha1.IssuerConditionReady, issuersv1alpha1.ConditionFalse, "CASError", "Cas error: "+err.Error())
-			return ctrl.Result{}, err
-		}
-		if len(req.NamespacedName.Namespace) == 0 {
-			ClusterIssuers.Store(req.NamespacedName, casClient)
-		} else {
-			Issuers.Store(req.NamespacedName, casClient)
-		}
-	} else {
-		casClient, err := cas.New()
-		if err != nil {
-			//r.setStatusCondition(ctx, log, &issuer, issuersv1alpha1.IssuerConditionReady, issuersv1alpha1.ConditionFalse, "CASError", "Cas error: "+err.Error())
-			return ctrl.Result{}, err
-		}
-		if len(req.NamespacedName.Namespace) == 0 {
-			ClusterIssuers.Store(req.NamespacedName, casClient)
-		} else {
-			Issuers.Store(req.NamespacedName, casClient)
-		}
+// convert a k8s.io/apimachinery/pkg/runtime.Object into a sigs.k8s.io/controller-runtime/pkg/client.Object
+func (r *GoogleCASIssuerReconciler) getIssuer() (client.Object, error) {
+	issuer, err := r.Scheme.New(issuersv1alpha1.GroupVersion.WithKind(r.Kind))
+	if err != nil {
+		return nil, err
 	}
-	// r.setStatusCondition(ctx, log, &issuer, issuersv1alpha1.IssuerConditionReady, issuersv1alpha1.ConditionTrue, "Ready", "CAS Client is ready to issue certs")
-
-	return ctrl.Result{}, nil
-
+	switch t := issuer.(type) {
+	case *issuersv1alpha1.GoogleCASIssuer:
+		return t, nil
+	case *issuersv1alpha1.GoogleCASClusterIssuer:
+		return t, nil
+	default:
+		return nil, fmt.Errorf("unsupported kind %s", r.Kind)
+	}
 }
 
-func init() {
-	Issuers = &sync.Map{}
+func getIssuerSpecStatus(object client.Object) (*issuersv1alpha1.GoogleCASIssuerSpec, *issuersv1alpha1.GoogleCASIssuerStatus, error) {
+	switch t := object.(type) {
+	case *issuersv1alpha1.GoogleCASIssuer:
+		return &t.Spec, &t.Status, nil
+	case *issuersv1alpha1.GoogleCASClusterIssuer:
+		return &t.Spec, &t.Status, nil
+	default:
+		return nil, nil, fmt.Errorf("unexpected type %T", t)
+	}
+}
+
+func setReadyCondition(status *issuersv1alpha1.GoogleCASIssuerStatus, conditionStatus issuersv1alpha1.ConditionStatus, reason, message string) {
+	var ready *issuersv1alpha1.GoogleCASIssuerCondition
+	for _, c := range status.Conditions {
+		if c.Type == issuersv1alpha1.IssuerConditionReady {
+			ready = &c
+			break
+		}
+	}
+	if ready == nil {
+		ready = &issuersv1alpha1.GoogleCASIssuerCondition{Type: issuersv1alpha1.IssuerConditionReady}
+	}
+	if ready.Status != conditionStatus {
+		ready.Status = conditionStatus
+		now := metav1.Now()
+		ready.LastTransitionTime = &now
+	}
+	ready.Reason = reason
+	ready.Message = message
+
+	for i, c := range status.Conditions {
+		if c.Type == issuersv1alpha1.IssuerConditionReady {
+			status.Conditions[i] = *ready
+			return
+		}
+	}
 }
