@@ -42,9 +42,6 @@ type Signer interface {
 	Sign([]byte, time.Duration) ([]byte, []byte, error)
 }
 
-// A SignerBuilder constructs a Signer from an Issuer Spec
-type SignerBuilder func(ctx context.Context, spec *v1alpha1.GoogleCASIssuerSpec, client client.Client) (Signer, error)
-
 type casSigner struct {
 	// parent is the Google cloud project ID in the format "projects/*/locations/*"
 	parent string
