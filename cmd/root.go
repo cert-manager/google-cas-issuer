@@ -91,8 +91,11 @@ func root() error {
 		return err
 	}
 
+	ctx := ctrl.SetupSignalHandler()
+
 	// Start Controllers
 	if err = (&issuer.GoogleCASIssuerReconciler{
+		Kind:   "GoogleCASIssuer",
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controller").WithName("GoogleCASIssuer"),
 		Scheme: mgr.GetScheme(),
@@ -100,7 +103,8 @@ func root() error {
 		setupLog.Error(err, "unable to create controller", "controller", "GoogleCASIssuer")
 		return err
 	}
-	if err = (&issuer.GoogleCASClusterIssuerReconciler{
+	if err = (&issuer.GoogleCASIssuerReconciler{
+		Kind:   "GoogleCASClusterIssuer",
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controller").WithName("GoogleCASClusterIssuer"),
 		Scheme: mgr.GetScheme(),
@@ -118,7 +122,7 @@ func root() error {
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		return err
 	}
