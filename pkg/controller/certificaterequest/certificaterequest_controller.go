@@ -34,7 +34,7 @@ import (
 	casapi "github.com/jetstack/google-cas-issuer/api/v1alpha1"
 )
 
-// CertificateRequestReconciler reconciles CSRs
+// CertificateRequestReconciler reconciles CRs
 type CertificateRequestReconciler struct {
 	client.Client
 	Log logr.Logger
@@ -110,6 +110,8 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	var ns string
 	if err != nil {
 		log.Error(err, "unknown issuer kind", "kind", certificateRequest.Spec.IssuerRef.Kind)
+		// Status should update here
+		// send an event here
 		return ctrl.Result{}, nil
 	}
 	switch t := issuerGeneric.(type) {
@@ -142,6 +144,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		ns = viper.GetString("cluster-resource-namespace")
 	default:
 		log.Error(err, "unknown issuer type", "object", t)
+		// TODO: send event 😁
 		return ctrl.Result{}, nil
 	}
 	signer, err := cas.NewSigner(ctx, spec, r.Client, ns)
