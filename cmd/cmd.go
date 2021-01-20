@@ -26,7 +26,6 @@ import (
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var (
@@ -43,9 +42,6 @@ func Execute() {
 }
 
 func init() {
-	// Initialise logging
-	ctrl.SetLogger(zap.New())
-
 	// Check environment variables for config
 	cobra.OnInitialize(flagsFromEnv)
 

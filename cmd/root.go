@@ -27,6 +27,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	issuersv1alpha1 "github.com/jetstack/google-cas-issuer/api/v1alpha1"
 	"github.com/jetstack/google-cas-issuer/pkg/controller/certificaterequest"
@@ -45,13 +46,23 @@ var (
 )
 
 func init() {
+	// Issuer flags
 	rootCmd.PersistentFlags().String("metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	rootCmd.PersistentFlags().Bool("enable-leader-election", false, "Enable leader election for controller manager.")
 	rootCmd.PersistentFlags().String("cluster-resource-namespace", "cert-manager", "The namespace for secrets in which cluster-scoped resources are found.")
+
+	// Zap flags
+	rootCmd.PersistentFlags().Bool("zap-devel", false, "Zap Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn).")
+
 	viper.BindPFlags(rootCmd.PersistentFlags())
 }
 
 func root() error {
+	// Initialise Logging
+	opts := &zap.Options{}
+	opts.Development = viper.GetBool("zap-devel")
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(opts)))
+
 	// Add all APIs to scheme
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
 		setupLog.Error(err, "couldn't add client-go scheme")
