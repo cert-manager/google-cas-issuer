@@ -154,8 +154,14 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
+	// Use custom duration if given
+	duration := time.Hour * 24 * 30
+	if certificateRequest.Spec.Duration != nil {
+		duration = certificateRequest.Spec.Duration.Duration
+	}
+
 	// Sign certificate
-	cert, ca, err := signer.Sign(certificateRequest.Spec.Request, certificateRequest.Spec.Duration.Duration)
+	cert, ca, err := signer.Sign(certificateRequest.Spec.Request, duration)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
