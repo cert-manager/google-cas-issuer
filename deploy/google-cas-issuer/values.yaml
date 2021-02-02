@@ -1,0 +1,31 @@
+# The namespace for secrets in which cluster-scoped resources are found. (default "cert-manager")
+secretsNamespace: cert-manager
+serviceAccount:
+  create: false
+  name: default
+  annotations: {}
+
+image:
+  # tag: v0.1.0
+  repository: quay.io/jetstack/cert-manager-google-cas-issuer
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+imagePullSecrets: {}
+securityContext: {}
+podSecurityContext: {}
+
+resources:
+  {}
+  # requests:
+  #   cpu: 10m
+  #   memory: 32Mi
+
+nodeSelector: {}
+affinity: {}
+tolerations: {}
+
+prometheus:
+  # Enables the creation of the ClusterIP service.
+  enabled: true
