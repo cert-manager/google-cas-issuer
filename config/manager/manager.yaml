@@ -20,6 +20,7 @@ spec:
       labels:
         app: cert-manager-google-cas-issuer
     spec:
+      serviceAccountName: ksa-google-cas-issuer
       containers:
       - command:
         - /google-cas-issuer

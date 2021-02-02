@@ -7,6 +7,6 @@ roleRef:
   kind: ClusterRole
   name: google-cas-issuer-role
 subjects:
-- kind: ServiceAccount
-  name: default
-  namespace: cert-manager
+  - kind: ServiceAccount
+    name: ksa-google-cas-issuer
+    namespace: cert-manager
