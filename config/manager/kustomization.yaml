@@ -4,5 +4,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: quay.io/jetstack/cert-manager-google-cas-issuer
+  newName: quay.io/jetstack/google-cas-issuer
   newTag: latest
