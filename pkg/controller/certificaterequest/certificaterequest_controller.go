@@ -18,6 +18,7 @@ package certificaterequest
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -26,6 +27,7 @@ import (
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	"github.com/jetstack/google-cas-issuer/pkg/cas"
 	"github.com/spf13/viper"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -111,8 +113,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	var ns string
 	if err != nil {
 		log.Error(err, "unknown issuer kind", "kind", certificateRequest.Spec.IssuerRef.Kind)
-		// Status should update here
-		// send an event here
+		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "The issuer kind "+certificateRequest.Spec.IssuerRef.Kind+" is invalid")
 		return ctrl.Result{}, nil
 	}
 	switch t := issuerGeneric.(type) {
@@ -124,6 +125,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if err != nil {
 			if client.IgnoreNotFound(err) == nil {
 				log.Info("ignoring not found")
+				setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "The issuer "+certificateRequest.Spec.IssuerRef.Name+" was not found")
 				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{}, err
@@ -137,6 +139,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if err != nil {
 			if client.IgnoreNotFound(err) == nil {
 				log.Info("ignoring not found")
+				setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "The issuer "+certificateRequest.Spec.IssuerRef.Name+" was not found")
 				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{}, err
@@ -145,7 +148,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		ns = viper.GetString("cluster-resource-namespace")
 	default:
 		log.Error(err, "unknown issuer type", "object", t)
-		// TODO: send event 😁
+		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "Unknown issuer type")
 		return ctrl.Result{}, nil
 	}
 	signer, err := cas.NewSigner(ctx, spec, r.Client, ns)
@@ -154,14 +157,15 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	// Use custom duration if given
-	duration := time.Hour * 24 * 30
-	if certificateRequest.Spec.Duration != nil {
-		duration = certificateRequest.Spec.Duration.Duration
+	// Check for obvious errors, e.g. missing duration, malformed certificte request
+	if err := sanitiseCertificateRequestSpec(&certificateRequest.Spec); err != nil {
+		log.Error(err, "certificate request has issues", "cr", req.NamespacedName)
+		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "certificate request has issues: "+err.Error())
+		return ctrl.Result{}, nil
 	}
 
 	// Sign certificate
-	cert, ca, err := signer.Sign(certificateRequest.Spec.Request, duration)
+	cert, ca, err := signer.Sign(certificateRequest.Spec.Request, certificateRequest.Spec.Duration.Duration)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -177,4 +181,23 @@ func (r *CertificateRequestReconciler) SetupWithManager(mgr ctrl.Manager) error 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cmapi.CertificateRequest{}).
 		Complete(r)
+}
+
+func sanitiseCertificateRequestSpec(spec *cmapi.CertificateRequestSpec) error {
+	// Ensure there is a duration
+	if spec.Duration == nil {
+		spec.Duration = &metav1.Duration{
+			Duration: cmapi.DefaultCertificateDuration,
+		}
+	}
+	// Very short durations should be increased
+	if spec.Duration.Duration < cmapi.MinimumCertificateDuration {
+		spec.Duration = &metav1.Duration{
+			Duration: cmapi.MinimumCertificateDuration,
+		}
+	}
+	if len(spec.Request) == 0 {
+		return errors.New("certificate request is empty")
+	}
+	return nil
 }

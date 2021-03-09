@@ -74,6 +74,7 @@ func (r *GoogleCASIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			setReadyCondition(status, issuersv1alpha1.ConditionFalse, "issuer failed to reconcile", err.Error())
 		}
 		if updateErr := r.Status().Update(ctx, issuer); updateErr != nil {
+			log.Info("Couldn't update ready condition", "err", err)
 			result = ctrl.Result{}
 		}
 	}()
@@ -158,4 +159,6 @@ func setReadyCondition(status *issuersv1alpha1.GoogleCASIssuerStatus, conditionS
 			return
 		}
 	}
+
+	status.Conditions = append(status.Conditions, *ready)
 }
