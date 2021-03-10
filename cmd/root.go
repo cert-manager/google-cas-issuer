@@ -106,26 +106,29 @@ func root() error {
 
 	// Start Controllers
 	if err = (&issuer.GoogleCASIssuerReconciler{
-		Kind:   "GoogleCASIssuer",
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controller").WithName("GoogleCASIssuer"),
-		Scheme: mgr.GetScheme(),
+		Kind:     "GoogleCASIssuer",
+		Client:   mgr.GetClient(),
+		Log:      ctrl.Log.WithName("controller").WithName("GoogleCASIssuer"),
+		Recorder: mgr.GetEventRecorderFor("cas-issuer-googlecasissuer-controller"),
+		Scheme:   mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GoogleCASIssuer")
 		return err
 	}
 	if err = (&issuer.GoogleCASIssuerReconciler{
-		Kind:   "GoogleCASClusterIssuer",
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controller").WithName("GoogleCASClusterIssuer"),
-		Scheme: mgr.GetScheme(),
+		Kind:     "GoogleCASClusterIssuer",
+		Client:   mgr.GetClient(),
+		Log:      ctrl.Log.WithName("controller").WithName("GoogleCASClusterIssuer"),
+		Recorder: mgr.GetEventRecorderFor("cas-issuer-googlecasclusterissuer-controller"),
+		Scheme:   mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GoogleCASClusterIssuer")
 		return err
 	}
 	if err = (&certificaterequest.CertificateRequestReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controller").WithName("CertificateRequest"),
+		Client:   mgr.GetClient(),
+		Log:      ctrl.Log.WithName("controller").WithName("CertificateRequest"),
+		Recorder: mgr.GetEventRecorderFor("cas-issuer-certificaterequest-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CertificateRequest")
 		return err

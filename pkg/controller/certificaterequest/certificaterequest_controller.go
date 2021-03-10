@@ -19,6 +19,7 @@ package certificaterequest
 import (
 	"context"
 	"errors"
+	"k8s.io/client-go/tools/record"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -36,10 +37,16 @@ import (
 	casapi "github.com/jetstack/google-cas-issuer/api/v1alpha1"
 )
 
+const (
+	eventTypeWarning = "Warning"
+	eventTypeNormal  = "Normal"
+)
+
 // CertificateRequestReconciler reconciles CRs
 type CertificateRequestReconciler struct {
 	client.Client
-	Log logr.Logger
+	Log      logr.Logger
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
@@ -92,7 +99,8 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if err != nil {
 			setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, err.Error())
 		}
-		if updateErr := r.Status().Update(ctx, &certificateRequest); updateErr != nil {
+		// The certificateRequest may have been deleted in the meantime, ignore any not found errors
+		if updateErr := client.IgnoreNotFound(r.Status().Update(ctx, &certificateRequest)); updateErr != nil {
 			err = utilerrors.NewAggregate([]error{err, updateErr})
 			result = ctrl.Result{}
 		}
@@ -113,7 +121,9 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	var ns string
 	if err != nil {
 		log.Error(err, "unknown issuer kind", "kind", certificateRequest.Spec.IssuerRef.Kind)
-		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "The issuer kind "+certificateRequest.Spec.IssuerRef.Kind+" is invalid")
+		msg := "The issuer kind " + certificateRequest.Spec.IssuerRef.Kind + " is invalid"
+		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
+		r.Recorder.Event(&certificateRequest, eventTypeWarning, "InvalidIssuer", msg)
 		return ctrl.Result{}, nil
 	}
 	switch t := issuerGeneric.(type) {
@@ -124,8 +134,10 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}, t)
 		if err != nil {
 			if client.IgnoreNotFound(err) == nil {
-				log.Info("ignoring not found")
-				setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "The issuer "+certificateRequest.Spec.IssuerRef.Name+" was not found")
+				log.Info("Issuer not found", "Issuer", certificateRequest.Spec.IssuerRef.Name, "namespace", req.NamespacedName.Namespace)
+				msg := "The issuer " + certificateRequest.Spec.IssuerRef.Name + " was not found"
+				setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
+				r.Recorder.Event(&certificateRequest, eventTypeWarning, "InvalidIssuer", msg)
 				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{}, err
@@ -138,8 +150,10 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}, t)
 		if err != nil {
 			if client.IgnoreNotFound(err) == nil {
-				log.Info("ignoring not found")
-				setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "The issuer "+certificateRequest.Spec.IssuerRef.Name+" was not found")
+				log.Info("ClusterIssuer not found", "CLusterIssuer", certificateRequest.Spec.IssuerRef.Name)
+				msg := "The ClusterIssuer " + certificateRequest.Spec.IssuerRef.Name + " was not found"
+				setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
+				r.Recorder.Event(&certificateRequest, eventTypeWarning, "InvalidIssuer", msg)
 				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{}, err
@@ -148,19 +162,25 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		ns = viper.GetString("cluster-resource-namespace")
 	default:
 		log.Error(err, "unknown issuer type", "object", t)
-		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "Unknown issuer type")
+		msg := "Unknown issuer type"
+		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
+		r.Recorder.Event(&certificateRequest, eventTypeWarning, "InvalidIssuer", msg)
 		return ctrl.Result{}, nil
 	}
 	signer, err := cas.NewSigner(ctx, spec, r.Client, ns)
 	if err != nil {
 		log.Error(err, "couldn't construct signer for certificate", "cr", req.NamespacedName)
+		msg := "Couldn't construct signer, check if CA " + spec.CertificateAuthorityID + "is ready"
+		r.Recorder.Event(&certificateRequest, eventTypeWarning, "SignerNotReady", msg)
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	// Check for obvious errors, e.g. missing duration, malformed certificte request
 	if err := sanitiseCertificateRequestSpec(&certificateRequest.Spec); err != nil {
 		log.Error(err, "certificate request has issues", "cr", req.NamespacedName)
-		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, "certificate request has issues: "+err.Error())
+		msg := "certificate request has issues: " + err.Error()
+		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
+		r.Recorder.Event(&certificateRequest, eventTypeWarning, "CRInvalid", msg)
 		return ctrl.Result{}, nil
 	}
 
@@ -171,7 +191,9 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 	certificateRequest.Status.CA = ca
 	certificateRequest.Status.Certificate = cert
-	setReadyCondition(cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Certificate issued")
+	msg := "Certificate Issued"
+	setReadyCondition(cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, msg)
+	r.Recorder.Event(&certificateRequest, eventTypeNormal, "CRInvalid", msg)
 	return ctrl.Result{}, nil
 }
 
