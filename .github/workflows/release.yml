@@ -51,7 +51,7 @@ jobs:
       -
         name: extract version
         id: extract_version
-        run: echo ::set-output name=VERSION::$(echo ${GITHUB_REF##*/})
+        run: echo ::set-output name=VERSION::$(echo ${${GITHUB_REF##*/}:1})
       -
         name: install controller-gen
         working-directory: /
@@ -78,7 +78,7 @@ jobs:
           IMG: quay.io/jetstack/cert-manager-google-cas-issuer
         run: |
           pushd config/manager
-          kustomize edit set image controller=$IMG:${GITHUB_REF##*/}
+          kustomize edit set image controller=$IMG:${${GITHUB_REF##*/}:1}
           popd
           kustomize build config/default | tee google-cas-issuer-${GITHUB_REF##*/}.yaml
       -
@@ -93,7 +93,7 @@ jobs:
           draft: true
           prerelease: false
           body: |
-            docker images are available at `quay.io/jetstack/cert-manager-google-cas-issuer:${{ steps.extract_version.outputs.VERSION }}
+            docker images are available at `quay.io/jetstack/cert-manager-google-cas-issuer:${{ steps.extract_version.outputs.VERSION }}`
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
