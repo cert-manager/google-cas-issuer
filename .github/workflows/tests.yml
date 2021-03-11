@@ -3,7 +3,7 @@ on: [pull_request, push]
 jobs:
   run_tests:
     runs-on: ubuntu-latest
-    container: golang:1.15
+    container: golang:1.16
     steps:
       - name: install kubebuilder
         run: |
