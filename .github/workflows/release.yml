@@ -46,12 +46,12 @@ jobs:
 
   prepare_release:
     runs-on: ubuntu-latest
-    container: golang:1.15
+    container: golang:1.16
     steps:
       -
         name: extract version
         id: extract_version
-        run: echo ::set-output name=VERSION::$(echo ${${GITHUB_REF##*/}:1})
+        run: /bin/bash -c 'echo ::set-output name=VERSION::$(echo ${GITHUB_REF##*/} | cut -c2-)'
       -
         name: install controller-gen
         working-directory: /
@@ -78,7 +78,7 @@ jobs:
           IMG: quay.io/jetstack/cert-manager-google-cas-issuer
         run: |
           pushd config/manager
-          kustomize edit set image controller=$IMG:${${GITHUB_REF##*/}:1}
+          kustomize edit set image controller=$IMG:$(echo ${GITHUB_REF##*/} | cut -c2-)
           popd
           kustomize build config/default | tee google-cas-issuer-${GITHUB_REF##*/}.yaml
       -
