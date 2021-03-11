@@ -93,7 +93,9 @@ jobs:
           draft: true
           prerelease: false
           body: |
-            docker images are available at `quay.io/jetstack/cert-manager-google-cas-issuer:${{ steps.extract_version.outputs.VERSION }}`
+            Docker images are available at `quay.io/jetstack/cert-manager-google-cas-issuer:${{ steps.extract_version.outputs.VERSION }}`
+
+            One-line install: `kubectl apply -f https://github.com/jetstack/google-cas-issuer/releases/download/v${{ steps.extract_version.outputs.VERSION }}/google-cas-issuer-v${{ steps.extract_version.outputs.VERSION }}.yaml`
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
@@ -101,7 +103,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./google-cas-issuer-${{ steps.extract_version.outputs.VERSION }}.yaml
-          asset_name: google-cas-issuer-${{ steps.extract_version.outputs.VERSION }}.yaml
+          asset_path: ./google-cas-issuer-v${{ steps.extract_version.outputs.VERSION }}.yaml
+          asset_name: google-cas-issuer-v${{ steps.extract_version.outputs.VERSION }}.yaml
           asset_content_type: application/x-yaml
 
