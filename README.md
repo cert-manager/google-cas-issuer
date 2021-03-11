@@ -13,9 +13,19 @@ Certificate Authority Service (CAS)](https://cloud.google.com/certificate-author
 Enable the Certificate Authority API (`privateca.googleapis.com`) in your GCP project by following the
 [official documentation](https://cloud.google.com/certificate-authority-service/docs/quickstart).
 
-####  CAS-managed CAs
+#### CAS-managed CAs
 
-Create Certificate Authorities (CAs) by following the [official documentation](https://cloud.google.com/certificate-authority-service/docs/creating-certificate-authorities). It is recommended to create subordinate CAs for signing leaf certificates.
+You can create a root certificate authority as well as an intermediate
+certificate authority ("subordinate") in your current Google project with:
+
+```sh
+gcloud beta privateca roots create my-ca --subject="CN=root,O=my-ca"
+gcloud beta privateca subordinates create my-sub-ca  --issuer=my-ca --location us-east1 --subject="CN=intermediate,O=my-ca,OU=my-sub-ca"
+```
+
+> It is recommended to create subordinate CAs for signing leaf
+> certificates. See the [official
+> documentation](https://cloud.google.com/certificate-authority-service/docs/creating-certificate-authorities).
 
 #### cert-manager
 
@@ -50,6 +60,7 @@ make docker-build
 ```
 
 Push the docker image or load it into kind for testing
+
 ```shell
 make docker-push || kind load docker-image quay.io/jetstack/cert-manager-google-cas-issuer:latest
 ```
@@ -116,9 +127,25 @@ gcloud beta privateca subordinates add-iam-policy-binding my-sub-ca --role=roles
 
 #### Inside GKE with workload identity
 
-Ensure your cluster is set up with
-[workload identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity)
-enabled. Create a kubernetes service account for the CAS Issuer:
+One important requirement for your GKE cluster is that it must be set up to
+use the [workload
+identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity). If you want to create a cluster from scratch to test the issuer, you can do:
+
+```sh
+gcloud container clusters create test --region us-east1 --num-nodes=1 --preemptible \
+  --workload-pool=$(gcloud config get-value project | tr ':' '/').svc.id.goog
+```
+
+If you want to use the CAS issuer in an existing cluster, you can still
+enable the "workload identity" feature with:
+
+```sh
+gcloud container clusters update CLUSTER_NAME --region=CLUSTER_REGION \
+  --workload-pool="$(gcloud config get-value project | tr ':' '/').svc.id.goog"
+```
+
+Now that your cluster has the "workload identity" feature turned on, you
+can create a Kubernetes service account for the CAS Issuer:
 
 ```shell
 # Create a new Kubernetes service account
@@ -151,7 +178,7 @@ gcloud iam service-accounts keys create project-name-keyid.json \
 The service account key should be stored in a Kubernetes secret in your cluster so it can be accessed by the CAS Issuer controller.
 
 ```shell
- kubectl -n cert-manager create secret generic googlesa --from-file project-name-keyid.json 
+ kubectl -n cert-manager create secret generic googlesa --from-file project-name-keyid.json
 ```
 
 ### Configuring the Issuer
