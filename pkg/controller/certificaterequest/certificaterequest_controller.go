@@ -40,6 +40,11 @@ import (
 const (
 	eventTypeWarning = "Warning"
 	eventTypeNormal  = "Normal"
+
+	reasonInvalidIssuer  = "InvalidIssuer"
+	reasonSignerNotReady = "SignerNotReady"
+	reasonCRInvalid      = "CRInvalid"
+	reasonCertIssued     = "CertificateIssued"
 )
 
 // CertificateRequestReconciler reconciles CRs
@@ -123,7 +128,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		log.Error(err, "unknown issuer kind", "kind", certificateRequest.Spec.IssuerRef.Kind)
 		msg := "The issuer kind " + certificateRequest.Spec.IssuerRef.Kind + " is invalid"
 		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
-		r.Recorder.Event(&certificateRequest, eventTypeWarning, "InvalidIssuer", msg)
+		r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonInvalidIssuer, msg)
 		return ctrl.Result{}, nil
 	}
 	switch t := issuerGeneric.(type) {
@@ -137,7 +142,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 				log.Info("Issuer not found", "Issuer", certificateRequest.Spec.IssuerRef.Name, "namespace", req.NamespacedName.Namespace)
 				msg := "The issuer " + certificateRequest.Spec.IssuerRef.Name + " was not found"
 				setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
-				r.Recorder.Event(&certificateRequest, eventTypeWarning, "InvalidIssuer", msg)
+				r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonInvalidIssuer, msg)
 				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{}, err
@@ -153,7 +158,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 				log.Info("ClusterIssuer not found", "CLusterIssuer", certificateRequest.Spec.IssuerRef.Name)
 				msg := "The ClusterIssuer " + certificateRequest.Spec.IssuerRef.Name + " was not found"
 				setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
-				r.Recorder.Event(&certificateRequest, eventTypeWarning, "InvalidIssuer", msg)
+				r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonInvalidIssuer, msg)
 				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{}, err
@@ -164,14 +169,14 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		log.Error(err, "unknown issuer type", "object", t)
 		msg := "Unknown issuer type"
 		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
-		r.Recorder.Event(&certificateRequest, eventTypeWarning, "InvalidIssuer", msg)
+		r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonInvalidIssuer, msg)
 		return ctrl.Result{}, nil
 	}
 	signer, err := cas.NewSigner(ctx, spec, r.Client, ns)
 	if err != nil {
 		log.Error(err, "couldn't construct signer for certificate", "cr", req.NamespacedName)
 		msg := "Couldn't construct signer, check if CA " + spec.CertificateAuthorityID + "is ready"
-		r.Recorder.Event(&certificateRequest, eventTypeWarning, "SignerNotReady", msg)
+		r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonSignerNotReady, msg)
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
@@ -180,7 +185,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		log.Error(err, "certificate request has issues", "cr", req.NamespacedName)
 		msg := "certificate request has issues: " + err.Error()
 		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
-		r.Recorder.Event(&certificateRequest, eventTypeWarning, "CRInvalid", msg)
+		r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonCRInvalid, msg)
 		return ctrl.Result{}, nil
 	}
 
@@ -193,7 +198,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	certificateRequest.Status.Certificate = cert
 	msg := "Certificate Issued"
 	setReadyCondition(cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, msg)
-	r.Recorder.Event(&certificateRequest, eventTypeNormal, "CRInvalid", msg)
+	r.Recorder.Event(&certificateRequest, eventTypeNormal, reasonCertIssued, msg)
 	return ctrl.Result{}, nil
 }
 

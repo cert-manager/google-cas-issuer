@@ -235,10 +235,16 @@ status:
   conditions: []
   storedVersions: []
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ksa-google-cas-issuer
+  namespace: cert-manager
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: casissuer-leader-election-role
+  name: leader-election-role
   namespace: cert-manager
 rules:
 - apiGroups:
@@ -281,7 +287,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: casissuer-google-cas-issuer-role
+  name: google-cas-issuer-role
 rules:
 - apiGroups:
   - ""
@@ -357,94 +363,38 @@ rules:
   - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: casissuer-proxy-role
-rules:
-- apiGroups:
-  - authentication.k8s.io
-  resources:
-  - tokenreviews
-  verbs:
-  - create
-- apiGroups:
-  - authorization.k8s.io
-  resources:
-  - subjectaccessreviews
-  verbs:
-  - create
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRole
-metadata:
-  name: casissuer-metrics-reader
-rules:
-- nonResourceURLs:
-  - /metrics
-  verbs:
-  - get
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: casissuer-leader-election-rolebinding
+  name: leader-election-rolebinding
   namespace: cert-manager
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: casissuer-leader-election-role
+  name: leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: ksa-google-cas-issuer
   namespace: cert-manager
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: casissuer-google-cas-issuer-rolebinding
+  name: google-cas-issuer-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: casissuer-google-cas-issuer-role
+  name: google-cas-issuer-role
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: ksa-google-cas-issuer
   namespace: cert-manager
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: casissuer-proxy-rolebinding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: casissuer-proxy-role
-subjects:
-- kind: ServiceAccount
-  name: default
-  namespace: cert-manager
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    control-plane: controller-manager
-  name: casissuer-controller-manager-metrics-service
-  namespace: cert-manager
-spec:
-  ports:
-  - name: https
-    port: 8443
-    targetPort: https
-  selector:
-    control-plane: controller-manager
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
     app: cert-manager-google-cas-issuer
-  name: casissuer-google-cas-issuer
+  name: google-cas-issuer
   namespace: cert-manager
 spec:
   replicas: 1
@@ -462,7 +412,7 @@ spec:
         - --zap-devel=true
         command:
         - /google-cas-issuer
-        image: quay.io/jetstack/google-cas-issuer:latest
+        image: quay.io/jetstack/cert-manager-google-cas-issuer:latest
         name: google-cas-issuer
         resources:
           limits:
@@ -471,4 +421,5 @@ spec:
           requests:
             cpu: 100m
             memory: 20Mi
+      serviceAccountName: ksa-google-cas-issuer
       terminationGracePeriodSeconds: 10

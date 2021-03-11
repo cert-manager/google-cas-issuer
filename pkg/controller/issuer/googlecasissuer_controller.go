@@ -32,6 +32,14 @@ import (
 	issuersv1alpha1 "github.com/jetstack/google-cas-issuer/api/v1alpha1"
 )
 
+const (
+	eventTypeWarning = "Warning"
+	eventTypeNormal  = "Normal"
+
+	reasonCASClientOK         = "CASClientOK"
+	reasonIssuerMisconfigured = "IssuerMisconfigured"
+)
+
 // GoogleCASIssuerReconciler reconciles a GoogleCASIssuer object
 type GoogleCASIssuerReconciler struct {
 	// GoogleCASIssuer or GoogleCASClusterIssuer
@@ -75,7 +83,8 @@ func (r *GoogleCASIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if err != nil {
 			setReadyCondition(status, issuersv1alpha1.ConditionFalse, "issuer failed to reconcile", err.Error())
 		}
-		if updateErr := r.Status().Update(ctx, issuer); updateErr != nil {
+		// If the Issuer is deleted mid-reconcile, ignore it
+		if updateErr := client.IgnoreNotFound(r.Status().Update(ctx, issuer)); updateErr != nil {
 			log.Info("Couldn't update ready condition", "err", err)
 			result = ctrl.Result{}
 		}
@@ -90,12 +99,15 @@ func (r *GoogleCASIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	if err != nil {
 		log.Info("Issuer is misconfigured", "info", err.Error())
-		setReadyCondition(status, issuersv1alpha1.ConditionFalse, "issuer is misconfigured", err.Error())
+		setReadyCondition(status, issuersv1alpha1.ConditionFalse, reasonIssuerMisconfigured, err.Error())
+		r.Recorder.Event(issuer, eventTypeWarning, reasonIssuerMisconfigured, err.Error())
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	log.Info("reconciled issuer", "kind", issuer.GetObjectKind())
-	setReadyCondition(status, issuersv1alpha1.ConditionTrue, "Successfully constructed CAS client", "")
+	msg := "Successfully constructed CAS client"
+	setReadyCondition(status, issuersv1alpha1.ConditionTrue, reasonCASClientOK, msg)
+	r.Recorder.Event(issuer, eventTypeNormal, reasonCASClientOK, msg)
 	return ctrl.Result{}, nil
 }
 
