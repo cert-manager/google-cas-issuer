@@ -25,6 +25,9 @@ import (
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:printcolumn:name="ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
+// +kubebuilder:printcolumn:name="message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message"
 // +kubebuilder:subresource:status
 // GoogleCASClusterIssuer is the Schema for the googlecasclusterissuers API
 type GoogleCASClusterIssuer struct {

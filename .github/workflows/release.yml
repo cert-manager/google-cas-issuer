@@ -57,7 +57,7 @@ jobs:
         working-directory: /
         env:
           GO111MODULE: on
-        run: go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.5
+        run: go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1
       -
         name: install kustomize
         working-directory: /

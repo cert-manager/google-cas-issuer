@@ -1,16 +1,16 @@
 # Google Certificate Authority Service Issuer for cert-manager
 
 This repository contains an [external Issuer](https://cert-manager.io/docs/contributing/external-issuers/)
-for cert-manager that issues certificates using Google's private
-[Certificate Authority Service](https://cloud.google.com/certificate-authority-service/).
+for cert-manager that issues certificates using [Google Cloud
+Certificate Authority Service (CAS)](https://cloud.google.com/certificate-authority-service/), using managed private CAs to issue certificates.
 
 ## Getting started
 
 ### Prerequisites
 
-#### Private CA-enabled GCP project
+#### CAS-enabled GCP project
 
-Enable the private CA API in your GCP project by following the
+Enable the Certificate Authority API (`privateca.googleapis.com`) in your GCP project by following the
 [official documentation](https://cloud.google.com/certificate-authority-service/docs/quickstart).
 
 #### CAS-managed CAs
@@ -113,16 +113,16 @@ google-cas-issuer-687685dc46-lrjkc        1/1     Running   0          28h
 
 ### Setting up Google Cloud IAM
 
-Firstly, create a Google Cloud IAM service account. This service account will be used by the CAS Issuer to access the Google Private CA APIs.
+Firstly, create a Google Cloud IAM service account. This service account will be used by the CAS Issuer to access the Google Cloud CAS APIs.
 
 ```shell
-gcloud iam service-accounts create my-sa
+gcloud iam service-accounts create sa-google-cas-issuer
 ```
 
-Apply the appropriate IAM bindings to this account. This example permits the least privilege, to create  certificates (ie `roles/privateca.certificates.create`) from a specified suboordinate CA (`my-sub-ca`), but you can use other roles as necessary (see [Predefined Roles](https://cloud.google.com/certificate-authority-service/docs/reference/permissions-and-roles#predefined_roles) for more details).
+Apply the appropriate IAM bindings to this account. This example permits the least privilege, to create certificates (ie `roles/privateca.certificates.create`) from a specified suboordinate CA (`my-sub-ca`), but you can use other roles as necessary (see [Predefined Roles](https://cloud.google.com/certificate-authority-service/docs/reference/permissions-and-roles#predefined_roles) for more details).
 
 ```shell
-gcloud beta privateca subordinates add-iam-policy-binding my-sub-ca --role=roles/privateca.certificateRequester --member='serviceAccount:my-sa@project-id.iam.gserviceaccount.com'
+gcloud beta privateca subordinates add-iam-policy-binding my-sub-ca --role=roles/privateca.certificateRequester --member='serviceAccount:sa-google-cas-issuer@project-id.iam.gserviceaccount.com'
 ```
 
 #### Inside GKE with workload identity
@@ -148,7 +148,8 @@ Now that your cluster has the "workload identity" feature turned on, you
 can create a Kubernetes service account for the CAS Issuer:
 
 ```shell
-kubectl create serviceaccount -n cert-manager ksa-for-cas
+# Create a new Kubernetes service account
+kubectl create serviceaccount -n cert-manager ksa-google-cas-issuer
 ```
 
 Bind the Kubernetes service account to the Google Cloud service account:
@@ -156,13 +157,13 @@ Bind the Kubernetes service account to the Google Cloud service account:
 ```shell
 gcloud iam service-accounts add-iam-policy-binding \
   --role roles/iam.workloadIdentityUser \
-  --member "serviceAccount:project-id.svc.id.goog[cert-manager/my-ksa]" \
-  my-sa@project-id.iam.gserviceaccount.com
+  --member "serviceAccount:project-id.svc.id.goog[cert-manager/ksa-google-cas-issuer]" \
+  sa-google-cas-issuer@project-id.iam.gserviceaccount.com
 
 kubectl annotate serviceaccount \
   --namespace cert-manager \
-  my-ksa \
-  iam.gke.io/gcp-service-account=my-sa@project-id.iam.gserviceaccount.com
+  ksa-google-cas-issuer \
+  iam.gke.io/gcp-service-account=sa-google-cas-issuer@project-id.iam.gserviceaccount.com
 ```
 
 #### Outside GKE or in an unrelated GCP project
@@ -170,7 +171,8 @@ kubectl annotate serviceaccount \
 Create a key for the service account and download it to a local JSON file.
 
 ```shell
-gcloud iam service-accounts keys create project-name-keyid.json --iam-account my-sa@project-id.iam.gserviceaccount.com
+gcloud iam service-accounts keys create project-name-keyid.json \
+  --iam-account sa-google-cas-issuer@project-id.iam.gserviceaccount.com
 ```
 
 The service account key should be stored in a Kubernetes secret in your cluster so it can be accessed by the CAS Issuer controller.

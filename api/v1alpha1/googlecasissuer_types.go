@@ -53,6 +53,9 @@ type GoogleCASIssuerStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:printcolumn:name="ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
+// +kubebuilder:printcolumn:name="reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
+// +kubebuilder:printcolumn:name="message",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].message"
 // +kubebuilder:subresource:status
 // GoogleCASIssuer is the Schema for the googlecasissuers API
 type GoogleCASIssuer struct {
