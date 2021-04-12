@@ -45,6 +45,8 @@ const (
 	reasonSignerNotReady = "SignerNotReady"
 	reasonCRInvalid      = "CRInvalid"
 	reasonCertIssued     = "CertificateIssued"
+	reasonCRNotApproved  = "CRNotApproved"
+	reasonCRDenied       = "CRDenied"
 )
 
 // CertificateRequestReconciler reconciles CRs
@@ -180,13 +182,33 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	// Check for obvious errors, e.g. missing duration, malformed certificte request
+	// Check for obvious errors, e.g. missing duration, malformed certificate request
 	if err := sanitiseCertificateRequestSpec(&certificateRequest.Spec); err != nil {
 		log.Error(err, "certificate request has issues", "cr", req.NamespacedName)
 		msg := "certificate request has issues: " + err.Error()
 		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
 		r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonCRInvalid, msg)
 		return ctrl.Result{}, nil
+	}
+
+	// From cert-manager v1.3 onwards, CertificateRequests must be approved before they are signed.
+	if !viper.GetBool("disable-approval-check") {
+		log.Info("Checking whether CR has been approved", "cr", req.NamespacedName)
+		// Explicitly fail if the certificate request has been denied
+		if cmutil.CertificateRequestIsDenied(&certificateRequest) {
+			msg := "certificate request has been denied, not signing"
+			log.Info(msg, "cr", req.NamespacedName)
+			setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
+			r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonCRDenied, msg)
+			return ctrl.Result{}, nil
+		}
+		// Check whether the certificate request has been approved
+		if !cmutil.CertificateRequestIsApproved(&certificateRequest){
+			msg := "certificate request is not approved yet"
+			log.Info(msg, "cr", req.NamespacedName)
+			r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonCRNotApproved, msg)
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// Sign certificate
