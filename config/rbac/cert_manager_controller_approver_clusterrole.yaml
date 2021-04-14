@@ -10,4 +10,5 @@ rules:
   verbs:
   - approve
   resourceNames:
-  - cas-issuer.jetstack.io/*
+  - googlecasclusterissuers.cas-issuer.jetstack.io/*
+  - googlecasissuers.cas-issuer.jetstack.io/*

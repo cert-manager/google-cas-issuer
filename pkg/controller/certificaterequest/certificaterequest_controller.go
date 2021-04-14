@@ -46,7 +46,6 @@ const (
 	reasonCRInvalid      = "CRInvalid"
 	reasonCertIssued     = "CertificateIssued"
 	reasonCRNotApproved  = "CRNotApproved"
-	reasonCRDenied       = "CRDenied"
 )
 
 // CertificateRequestReconciler reconciles CRs
@@ -112,6 +111,26 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 			result = ctrl.Result{}
 		}
 	}()
+
+	// Explicitly fail if the certificate request has been denied
+	if cmutil.CertificateRequestIsDenied(&certificateRequest) {
+		msg := "certificate request has been denied, not signing"
+		log.Info(msg, "cr", req.NamespacedName)
+		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonDenied, msg)
+		r.Recorder.Event(&certificateRequest, eventTypeWarning, cmapi.CertificateRequestReasonDenied, msg)
+		return ctrl.Result{}, nil
+	}
+
+	// From cert-manager v1.3 onwards, CertificateRequests must be approved before they are signed.
+	if !viper.GetBool("disable-approval-check") {
+		log.Info("Checking whether CR has been approved", "cr", req.NamespacedName)
+		if !cmutil.CertificateRequestIsApproved(&certificateRequest){
+			msg := "certificate request is not approved yet"
+			log.Info(msg, "cr", req.NamespacedName)
+			r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonCRNotApproved, msg)
+			return ctrl.Result{}, nil
+		}
+	}
 
 	// Add a Ready condition if one does not already exist
 	if ready := cmutil.GetCertificateRequestCondition(&certificateRequest, cmapi.CertificateRequestConditionReady); ready == nil {
@@ -189,26 +208,6 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
 		r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonCRInvalid, msg)
 		return ctrl.Result{}, nil
-	}
-
-	// From cert-manager v1.3 onwards, CertificateRequests must be approved before they are signed.
-	if !viper.GetBool("disable-approval-check") {
-		log.Info("Checking whether CR has been approved", "cr", req.NamespacedName)
-		// Explicitly fail if the certificate request has been denied
-		if cmutil.CertificateRequestIsDenied(&certificateRequest) {
-			msg := "certificate request has been denied, not signing"
-			log.Info(msg, "cr", req.NamespacedName)
-			setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, msg)
-			r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonCRDenied, msg)
-			return ctrl.Result{}, nil
-		}
-		// Check whether the certificate request has been approved
-		if !cmutil.CertificateRequestIsApproved(&certificateRequest){
-			msg := "certificate request is not approved yet"
-			log.Info(msg, "cr", req.NamespacedName)
-			r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonCRNotApproved, msg)
-			return ctrl.Result{}, nil
-		}
 	}
 
 	// Sign certificate

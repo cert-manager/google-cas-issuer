@@ -7,7 +7,7 @@ require (
 	github.com/go-logr/logr v0.3.0
 	github.com/golang/protobuf v1.4.3
 	github.com/google/uuid v1.1.2
-	github.com/jetstack/cert-manager v1.3.0
+	github.com/jetstack/cert-manager v1.3.1
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/spf13/cobra v1.1.1
