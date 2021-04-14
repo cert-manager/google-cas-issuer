@@ -79,12 +79,28 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	// Ignore already Ready CRs
+	// Ignore CRs that have reached a terminal state
 	if cmutil.CertificateRequestHasCondition(&certificateRequest, cmapi.CertificateRequestCondition{
 		Type:   cmapi.CertificateRequestConditionReady,
 		Status: cmmeta.ConditionTrue,
 	}) {
-		log.Info("CertificateRequest is Ready, Ignoring.", "certificaterequest", req.NamespacedName)
+		log.Info("CertificateRequest is Ready, ignoring.", "cr", req.NamespacedName)
+		return ctrl.Result{}, nil
+	}
+	if cmutil.CertificateRequestHasCondition(&certificateRequest, cmapi.CertificateRequestCondition{
+		Type:   cmapi.CertificateRequestConditionReady,
+		Status: cmmeta.ConditionFalse,
+		Reason: cmapi.CertificateRequestReasonDenied,
+	}) {
+		log.Info("CertificateRequest has been denied, ignoring.", "cr", req.NamespacedName)
+		return ctrl.Result{}, nil
+	}
+	if cmutil.CertificateRequestHasCondition(&certificateRequest, cmapi.CertificateRequestCondition{
+		Type:   cmapi.CertificateRequestConditionReady,
+		Status: cmmeta.ConditionFalse,
+		Reason: cmapi.CertificateRequestReasonFailed,
+	}) {
+		log.Info("CertificateRequest has failed, ignoring.", "cr", req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
 
