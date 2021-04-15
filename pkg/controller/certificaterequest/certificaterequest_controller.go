@@ -133,7 +133,6 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		msg := "certificate request has been denied, not signing"
 		log.Info(msg, "cr", req.NamespacedName)
 		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonDenied, msg)
-		r.Recorder.Event(&certificateRequest, eventTypeWarning, cmapi.CertificateRequestReasonDenied, msg)
 		return ctrl.Result{}, nil
 	}
 
