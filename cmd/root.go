@@ -50,6 +50,7 @@ func init() {
 	rootCmd.PersistentFlags().String("metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	rootCmd.PersistentFlags().Bool("enable-leader-election", false, "Enable leader election for controller manager.")
 	rootCmd.PersistentFlags().String("cluster-resource-namespace", "cert-manager", "The namespace for secrets in which cluster-scoped resources are found.")
+	rootCmd.PersistentFlags().Bool("disable-approval-check", false, "Don't check whether a CertificateRequest is approved before signing. For compatibility with cert-manager <v1.3.0.")
 
 	// Zap flags
 	rootCmd.PersistentFlags().Bool("zap-devel", false, "Zap Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn).")
