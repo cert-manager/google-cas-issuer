@@ -39,7 +39,7 @@ Install the Google CAS Issuer CRDs in `config/crd`. These manifests use kustomiz
 kubectl apply -k config/crd
 ```
 
-Examine the ClusterRole and ClusterRolebinding in `config/rbac/role.yaml` and `config/rbac/role_binding.yaml`. By default, these give the default Kubernetes service account in the cert-manager namespace all the necessary permissions. Customise these to your needs.
+Examine the ClusterRole and ClusterRolebinding in `config/rbac/role.yaml` and `config/rbac/role_binding.yaml`. By default, these give the `ksa-google-cas-issuer` Kubernetes service account in the cert-manager namespace all the necessary permissions. Customise these to your needs.
 
 ```shell
 kubectl apply -f config/rbac/role.yaml
