@@ -42,6 +42,8 @@ kubectl apply -k config/crd
 Examine the ClusterRole and ClusterRolebinding in `config/rbac/role.yaml` and `config/rbac/role_binding.yaml`. By default, these give the `ksa-google-cas-issuer` Kubernetes service account in the cert-manager namespace all the necessary permissions. Customise these to your needs.
 
 ```shell
+kubectl create serviceaccount -n cert-manager ksa-google-cas-issuer
+
 kubectl apply -f config/rbac/role.yaml
 kubectl apply -f config/rbac/role_binding.yaml
 ```
@@ -148,15 +150,7 @@ gcloud container clusters update CLUSTER_NAME --region=CLUSTER_REGION \
   --workload-pool="$(gcloud config get-value project | tr ':' '/').svc.id.goog"
 ```
 
-Now that your cluster has the "workload identity" feature turned on, you
-can create a Kubernetes service account for the CAS Issuer:
-
-```shell
-# Create a new Kubernetes service account
-kubectl create serviceaccount -n cert-manager ksa-google-cas-issuer
-```
-
-Bind the Kubernetes service account to the Google Cloud service account:
+Bind the Kubernetes service account (`ksa-google-cas-issuer`) to the Google Cloud service account:
 
 ```shell
 export PROJECT=$(gcloud config get-value project | tr ':' '/')
