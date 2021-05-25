@@ -13,14 +13,14 @@ Certificate Authority Service (CAS)](https://cloud.google.com/certificate-author
 Enable the Certificate Authority API (`privateca.googleapis.com`) in your GCP project by following the
 [official documentation](https://cloud.google.com/certificate-authority-service/docs/quickstart).
 
-#### CAS-managed CAs
+#### CAS-managed Certificate Authorities
 
 You can create a root certificate authority as well as an intermediate
 certificate authority ("subordinate") in your current Google project with:
 
 ```sh
-gcloud beta privateca roots create my-ca --subject="CN=root,O=my-ca"
-gcloud beta privateca subordinates create my-sub-ca  --issuer=my-ca --location us-east1 --subject="CN=intermediate,O=my-ca,OU=my-sub-ca"
+gcloud beta privateca roots create my-ca --subject="CN=root,O=my-ca" --location us-east1 --max-chain-length=1
+gcloud beta privateca subordinates create my-sub-ca  --issuer=my-ca --issuer-location us-east1 --location us-east1 --subject="CN=intermediate,O=my-ca,OU=my-sub-ca"
 ```
 
 > It is recommended to create subordinate CAs for signing leaf
@@ -39,16 +39,18 @@ Install the Google CAS Issuer CRDs in `config/crd`. These manifests use kustomiz
 kubectl apply -k config/crd
 ```
 
-Examine the ClusterRole and ClusterRolebinding in `config/rbac/role.yaml` and
-`config/rbac/role_binding.yaml`. By default, these give the default Kubernetes service
-account in the cert-manager namespace all the necessary permissions. Customise these to your needs.
+Examine the ClusterRole and ClusterRolebinding in `config/rbac/role.yaml` and `config/rbac/role_binding.yaml`. By default, these give the `ksa-google-cas-issuer` Kubernetes service account in the cert-manager namespace all the necessary permissions. Customise these to your needs.
 
 ```shell
+kubectl create serviceaccount -n cert-manager ksa-google-cas-issuer
+
 kubectl apply -f config/rbac/role.yaml
 kubectl apply -f config/rbac/role_binding.yaml
 ```
 
-#### Build and deploy the controller
+#### Build and push the controller image
+
+**Note**: you can skip this step if using the public images at [quay.io](https://quay.io/repository/jetstack/cert-manager-google-cas-issuer?tag=latest&tab=tags).
 
 To build the image, ensure you have
 [kubebuilder installed](https://book.kubebuilder.io/quick-start.html#installation).
@@ -64,6 +66,8 @@ Push the docker image or load it into kind for testing
 ```shell
 make docker-push || kind load docker-image quay.io/jetstack/cert-manager-google-cas-issuer:latest
 ```
+
+#### Deploy the controller
 
 Deploy the issuer controller:
 
@@ -86,7 +90,9 @@ spec:
       labels:
         app: google-cas-issuer
     spec:
+      serviceAccountName: ksa-google-cas-issuer
       containers:
+      # update the image to your registry if you built and pushed your own image.
       - image: quay.io/jetstack/cert-manager-google-cas-issuer:latest
         imagePullPolicy: IfNotPresent
         name: google-cas-issuer
@@ -122,7 +128,7 @@ gcloud iam service-accounts create sa-google-cas-issuer
 Apply the appropriate IAM bindings to this account. This example permits the least privilege, to create certificates (ie `roles/privateca.certificates.create`) from a specified suboordinate CA (`my-sub-ca`), but you can use other roles as necessary (see [Predefined Roles](https://cloud.google.com/certificate-authority-service/docs/reference/permissions-and-roles#predefined_roles) for more details).
 
 ```shell
-gcloud beta privateca subordinates add-iam-policy-binding my-sub-ca --role=roles/privateca.certificateRequester --member='serviceAccount:sa-google-cas-issuer@project-id.iam.gserviceaccount.com'
+gcloud beta privateca subordinates add-iam-policy-binding my-sub-ca --role=roles/privateca.certificateRequester --member="serviceAccount:sa-google-cas-issuer@$(gcloud config get-value project | tr ':' '/').iam.gserviceaccount.com" --location=us-east1
 ```
 
 #### Inside GKE with workload identity
@@ -144,26 +150,21 @@ gcloud container clusters update CLUSTER_NAME --region=CLUSTER_REGION \
   --workload-pool="$(gcloud config get-value project | tr ':' '/').svc.id.goog"
 ```
 
-Now that your cluster has the "workload identity" feature turned on, you
-can create a Kubernetes service account for the CAS Issuer:
+Bind the Kubernetes service account (`ksa-google-cas-issuer`) to the Google Cloud service account:
 
 ```shell
-# Create a new Kubernetes service account
-kubectl create serviceaccount -n cert-manager ksa-google-cas-issuer
-```
+export PROJECT=$(gcloud config get-value project | tr ':' '/')
 
-Bind the Kubernetes service account to the Google Cloud service account:
-
-```shell
 gcloud iam service-accounts add-iam-policy-binding \
   --role roles/iam.workloadIdentityUser \
-  --member "serviceAccount:project-id.svc.id.goog[cert-manager/ksa-google-cas-issuer]" \
-  sa-google-cas-issuer@project-id.iam.gserviceaccount.com
+  --member "serviceAccount:$PROJECT.svc.id.goog[cert-manager/ksa-google-cas-issuer]" \
+  sa-google-cas-issuer@${PROJECT:?PROJECT is not set}.iam.gserviceaccount.com
 
 kubectl annotate serviceaccount \
   --namespace cert-manager \
   ksa-google-cas-issuer \
-  iam.gke.io/gcp-service-account=sa-google-cas-issuer@project-id.iam.gserviceaccount.com
+  iam.gke.io/gcp-service-account=sa-google-cas-issuer@${PROJECT:?PROJECT is not set}.iam.gserviceaccount.com \
+  --overwrite=true
 ```
 
 #### Outside GKE or in an unrelated GCP project
@@ -171,33 +172,36 @@ kubectl annotate serviceaccount \
 Create a key for the service account and download it to a local JSON file.
 
 ```shell
-gcloud iam service-accounts keys create project-name-keyid.json \
-  --iam-account sa-google-cas-issuer@project-id.iam.gserviceaccount.com
+gcloud iam service-accounts keys create $(gcloud config get-value project | tr ':' '/')-keyid.json \
+  --iam-account sa-google-cas-issuer@$(gcloud config get-value project | tr ':' '/').iam.gserviceaccount.com
 ```
 
 The service account key should be stored in a Kubernetes secret in your cluster so it can be accessed by the CAS Issuer controller.
 
 ```shell
- kubectl -n cert-manager create secret generic googlesa --from-file project-name-keyid.json
+ kubectl -n cert-manager create secret generic googlesa --from-file $(gcloud config get-value project | tr ':' '/')-keyid.json
 ```
 
 ### Configuring the Issuer
 
 cert-manager is configured for Google CAS using either a `GoogleCASIssuer` (namespace-scoped) or a `GoogleCASClusterIssuer` (cluster-wide).
 
+Inspect the sample configurations below and update the PROJECT_ID as appropriate. Credentials can be omitted if you have configured the CSA issuer controller with Workload Identity.
+
 ```yaml
+# googlecasissuer-sample.yaml
 apiVersion: cas-issuer.jetstack.io/v1alpha1
 kind: GoogleCASIssuer
 metadata:
   name: googlecasissuer-sample
 spec:
-  project: project-name
-  location: europe-west1
+  project: $PROJECT_ID
+  location: us-east1
   certificateAuthorityID: my-sub-ca
   # credentials are optional if workload identity is enabled
   credentials:
     name: "googlesa"
-    key: "project-name-keyid.json"
+    key: "$PROJECT_ID-keyid.json"
 ```
 
 ```shell
@@ -207,18 +211,19 @@ kubectl apply -f googlecasissuer-sample.yaml
 or
 
 ```yaml
+# googlecasclusterissuer-sample.yaml
 apiVersion: cas-issuer.jetstack.io/v1alpha1
 kind: GoogleCASClusterIssuer
 metadata:
   name: googlecasclusterissuer-sample
 spec:
-  project: project-name
-  location: europe-west1
+  project: $PROJECT_ID
+  location: us-east1
   certificateAuthorityID: my-sub-ca
   # credentials are optional if workload identity is enabled
   credentials:
     name: "googlesa"
-    key: "project-name-keyid.json"
+    key: "$PROJECT_ID-keyid.json"
 ```
 
 ```shell
@@ -227,7 +232,7 @@ kubectl apply -f googlecasclusterissuer-sample.yaml
 
 ### Creating your first certificate
 
-You can now create certificates as normal, but ensure the `IssuerRef` is set to the Issuer created in the previous step.
+You can now create certificates as normal, but ensure the `IssuerRef` is set to the `GoogleCASIssuer` or `GoogleCASClusterIssuer` created in the previous step.
 
 ```yaml
 apiVersion: cert-manager.io/v1
@@ -251,8 +256,8 @@ spec:
   # Important: Ensure the issuerRef is set to the issuer or cluster issuer configured earlier
   issuerRef:
     group: cas-issuer.jetstack.io
-    kind: GoogleCASClusterIssuer
-    name: googlecasclusterissuer-sample
+    kind: GoogleCASClusterIssuer # or GoogleCASIssuer
+    name: googlecasclusterissuer-sample # or googlecasissuer-sample
 ```
 
 ```shell
