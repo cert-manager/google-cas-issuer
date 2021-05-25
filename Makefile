@@ -11,11 +11,22 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+GOOS=$(shell go env GOOS)
+GOARCH=$(shell go env GOARCH)
+
 all: google-cas-issuer
 
 # Run tests
 test: generate fmt vet manifests
 	go test ./... -coverprofile cover.out
+
+.PHONY: e2e
+e2e: kind kustomize ginkgo kubectl docker-build
+	$(KIND) version
+	$(KIND) create cluster --name casissuer-e2e
+	$(KIND) export kubeconfig --kubeconfig kubeconfig.yaml
+	$(KIND) load docker-image ${IMG}
+	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
 # Build google-cas-issuer binary
 google-cas-issuer: generate fmt vet
@@ -26,17 +37,17 @@ run: generate fmt vet manifests
 	go run ./main.go --zap-devel=true
 
 # Install CRDs into a cluster
-install: manifests
-	kustomize build config/crd | kubectl apply -f -
+install: manifests kustomize
+	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
 # Uninstall CRDs from a cluster
-uninstall: manifests
-	kustomize build config/crd | kubectl delete -f -
+uninstall: manifests kustomize
+	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests
+deploy: manifests kustomize
 	cd config/manager && kustomize edit set image controller=${IMG}
-	kustomize build config/default | kubectl apply -f -
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
@@ -63,18 +74,85 @@ docker-push:
 	docker push ${IMG}
 
 # find or download controller-gen
-# download controller-gen if necessary
 controller-gen:
 ifeq (, $(shell which controller-gen))
 	@{ \
 	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1 ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
+
+# find or download kustomize
+kustomize:
+ifeq (, $(shell which kustomize))
+	@{ \
+	set -e ;\
+	TEMPDIR=$(mktemp -d);\
+	cd $$TEMPDIR ;\
+	GO111MODULE=on go get sigs.k8s.io/kustomize/kustomize/v3 ;\
+	}
+KUSTOMIZE=$(GOBIN)/kustomize
+else
+KUSTOMIZE=$(shell which kustomize)
+endif
+
+# find or download kind
+kind:
+ifeq (, $(shell which kind))
+	@{ \
+	set -e ;\
+	TEMPDIR=$(mktemp -d);\
+	cd $$TEMPDIR ;\
+	GO111MODULE=on go get sigs.k8s.io/kind@v0.11.0 ;\
+	}
+KIND=$(GOBIN)/kind
+else
+KIND=$(shell which kind)
+endif
+
+
+# find or download sops
+sops:
+ifeq (, $(shell which sops))
+	@{ \
+	set -e ;\
+	TEMPDIR=$(mktemp -d);\
+	cd $$TEMPDIR ;\
+	GO111MODULE=on go get go.mozilla.org/sops/v3/cmd/sops ;\
+	}
+SOPS=$(GOBIN)/sops
+else
+SOPS=$(shell which sops)
+endif
+
+# find or download ginkgo
+ginkgo:
+ifeq (, $(shell which ginkgo))
+	@{ \
+	set -e ;\
+	TEMPDIR=$(mktemp -d);\
+	cd $$TEMPDIR ;\
+	GO111MODULE=on go get github.com/onsi/ginkgo/ginkgo ;\
+	}
+GINKGO=$(GOBIN)/ginkgo
+else
+GINKGO=$(shell which ginkgo)
+endif
+
+# find or download kubectl
+kubectl:
+ifeq (, $(shell which kubectl))
+	@{ \
+	set -e ;\
+	curl -LO "https://dl.k8s.io/release/$$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/$(GOOS)/$(GOARCH)/kubectl" ;\
+	chmod a+x kubectl ;\
+	mv kubectl $(GOBIN)/kubectl ;\
+	}
+KUBECTL=$(GOBIN)/kubectl
+else
+KUBECTL=$(shell which kubectl)
+endif
+
