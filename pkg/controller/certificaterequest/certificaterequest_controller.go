@@ -139,7 +139,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// From cert-manager v1.3 onwards, CertificateRequests must be approved before they are signed.
 	if !viper.GetBool("disable-approval-check") {
 		log.Info("Checking whether CR has been approved", "cr", req.NamespacedName)
-		if !cmutil.CertificateRequestIsApproved(&certificateRequest){
+		if !cmutil.CertificateRequestIsApproved(&certificateRequest) {
 			msg := "certificate request is not approved yet"
 			log.Info(msg, "cr", req.NamespacedName)
 			r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonCRNotApproved, msg)

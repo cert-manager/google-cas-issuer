@@ -24,11 +24,11 @@ import (
 	"math/rand"
 	"time"
 
-	"cloud.google.com/go/security/privateca/apiv1beta1"
+	"cloud.google.com/go/security/privateca/apiv1"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/google/uuid"
 	"google.golang.org/api/option"
-	casapi "google.golang.org/genproto/googleapis/cloud/security/privateca/v1beta1"
+	casapi "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
