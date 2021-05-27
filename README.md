@@ -15,12 +15,11 @@ Enable the Certificate Authority API (`privateca.googleapis.com`) in your GCP pr
 
 #### CAS-managed Certificate Authorities
 
-You can create a root certificate authority as well as an intermediate
-certificate authority ("subordinate") in your current Google project with:
+You can create a ca pool containing a certificate authority in your current Google project with:
 
 ```sh
-gcloud beta privateca roots create my-ca --subject="CN=root,O=my-ca" --location us-east1 --max-chain-length=1
-gcloud beta privateca subordinates create my-sub-ca  --issuer=my-ca --issuer-location us-east1 --location us-east1 --subject="CN=intermediate,O=my-ca,OU=my-sub-ca"
+gcloud privateca pools create my-pool --location us-east1
+gcloud privateca roots create my-ca --pool my-pool --key-algorithm "ec-p384-sha384" --subject="CN=intermediate,O=my-ca,OU=my-sub-ca" --max-chain-length=1
 ```
 
 > It is recommended to create subordinate CAs for signing leaf
@@ -128,7 +127,7 @@ gcloud iam service-accounts create sa-google-cas-issuer
 Apply the appropriate IAM bindings to this account. This example permits the least privilege, to create certificates (ie `roles/privateca.certificates.create`) from a specified suboordinate CA (`my-sub-ca`), but you can use other roles as necessary (see [Predefined Roles](https://cloud.google.com/certificate-authority-service/docs/reference/permissions-and-roles#predefined_roles) for more details).
 
 ```shell
-gcloud beta privateca subordinates add-iam-policy-binding my-sub-ca --role=roles/privateca.certificateRequester --member="serviceAccount:sa-google-cas-issuer@$(gcloud config get-value project | tr ':' '/').iam.gserviceaccount.com" --location=us-east1
+gcloud privateca pools add-iam-policy-binding my-pool --role=roles/privateca.certificateRequester --member="serviceAccount:sa-google-cas-issuer@$(gcloud config get-value project | tr ':' '/').iam.gserviceaccount.com" --location=us-east1
 ```
 
 #### Inside GKE with workload identity
@@ -197,7 +196,7 @@ metadata:
 spec:
   project: $PROJECT_ID
   location: us-east1
-  certificateAuthorityID: my-sub-ca
+  CaPoolId: my-pool
   # credentials are optional if workload identity is enabled
   credentials:
     name: "googlesa"
@@ -219,7 +218,7 @@ metadata:
 spec:
   project: $PROJECT_ID
   location: us-east1
-  certificateAuthorityID: my-sub-ca
+  caPoolId: my-pool
   # credentials are optional if workload identity is enabled
   credentials:
     name: "googlesa"

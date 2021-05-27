@@ -211,7 +211,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	signer, err := cas.NewSigner(ctx, spec, r.Client, ns)
 	if err != nil {
 		log.Error(err, "couldn't construct signer for certificate", "cr", req.NamespacedName)
-		msg := "Couldn't construct signer, check if CA " + spec.CertificateAuthorityID + "is ready"
+		msg := "Couldn't construct signer, check if CA pool " + spec.CaPoolId + "is ready"
 		r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonSignerNotReady, msg)
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}

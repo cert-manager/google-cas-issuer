@@ -45,8 +45,6 @@ type Signer interface {
 type casSigner struct {
 	// parent is the Google cloud project ID in the format "projects/*/locations/*"
 	parent string
-	// certificateID is the root / subordinate CA to sign from
-	certificateID string
 	// spec is a reference to the issuer Spec
 	spec *v1alpha1.GoogleCASIssuerSpec
 	// namespace is the namespace to look for secrets in
@@ -62,7 +60,8 @@ func (c *casSigner) Sign(csr []byte, expiry time.Duration) (cert []byte, ca []by
 		return nil, nil, err
 	}
 	createCertificateRequest := &casapi.CreateCertificateRequest{
-		Parent:        c.parent,
+		Parent: c.parent,
+		// Should this use the certificate request name?
 		CertificateId: fmt.Sprintf("cert-manager-%d", rand.Int()),
 		Certificate: &casapi.Certificate{
 			CertificateConfig: &casapi.Certificate_PemCsr{
@@ -73,7 +72,8 @@ func (c *casSigner) Sign(csr []byte, expiry time.Duration) (cert []byte, ca []by
 				Nanos:   0,
 			},
 		},
-		RequestId: uuid.New().String(),
+		RequestId:                     uuid.New().String(),
+		IssuingCertificateAuthorityId: c.spec.CertificateAuthorityId,
 	}
 	createCertResp, err := casClient.CreateCertificate(c.ctx, createCertificateRequest)
 	if err != nil {
@@ -89,15 +89,27 @@ func (c *casSigner) Sign(csr []byte, expiry time.Duration) (cert []byte, ca []by
 }
 
 func NewSigner(ctx context.Context, spec *v1alpha1.GoogleCASIssuerSpec, client client.Client, namespace string) (Signer, error) {
+	c, err := newSignerNoSelftest(ctx, spec, client, namespace)
+	if err != nil {
+		return c, err
+	}
+	if _, err := c.createCasClient(); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// newSignerNoSelftest creates a Signer without doing a self-check, useful for tests
+func newSignerNoSelftest(ctx context.Context, spec *v1alpha1.GoogleCASIssuerSpec, client client.Client, namespace string) (*casSigner, error) {
+	if spec.CaPoolId == "" {
+		return nil, fmt.Errorf("Must specify a CaPoolId")
+	}
 	c := &casSigner{
-		parent:    fmt.Sprintf("projects/%s/locations/%s/certificateAuthorities/%s", spec.Project, spec.Location, spec.CertificateAuthorityID),
+		parent:    fmt.Sprintf("projects/%s/locations/%s/caPools/%s", spec.Project, spec.Location, spec.CaPoolId),
 		spec:      spec,
 		client:    client,
 		ctx:       ctx,
 		namespace: namespace,
-	}
-	if _, err := c.createCasClient(); err != nil {
-		return nil, err
 	}
 	return c, nil
 }

@@ -35,8 +35,14 @@ type GoogleCASIssuerSpec struct {
 	// Location is the Google Cloud Project Location
 	Location string `json:"location,omitempty"`
 
-	// CertificateAuthorityID is The ID of the Google Private certificate authority that will sign certificates
-	CertificateAuthorityID string `json:"certificateAuthorityID,omitempty"`
+	// CaPoolId is the id of the CA pool to issue certificates from
+	CaPoolId string `json:"caPoolId,omitempty"`
+
+	// CertificateAuthorityId is specific certificate authority to
+	// use to sign. Omit in order to load balance across all CAs
+	// in the pool
+	// +optional
+	CertificateAuthorityId string `json:"certificateAuthorityId,omitempty"`
 
 	// Credentials is a reference to a Kubernetes Secret Key that contains Google Service Account Credentials
 	// +optional
