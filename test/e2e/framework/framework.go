@@ -2,22 +2,27 @@ package framework
 
 import (
 	cmversioned "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
+	"github.com/jetstack/google-cas-issuer/test/e2e/framework/config"
+	"github.com/jetstack/google-cas-issuer/test/e2e/framework/helper"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/discovery"
+	memory "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-
-	"github.com/jetstack/google-cas-issuer/test/e2e/framework/config"
-	"github.com/jetstack/google-cas-issuer/test/e2e/framework/helper"
+	"k8s.io/client-go/restmapper"
 )
 
 type Framework struct {
 	BaseName string
 
-	KubeClientSet   kubernetes.Interface
-	CMClientSet     cmversioned.Interface
-	DyamicClientSet dynamic.Interface
+	KubeClientSet    kubernetes.Interface
+	CMClientSet      cmversioned.Interface
+	DynamicClientSet dynamic.Interface
+
+	DiscoveryClient discovery.DiscoveryInterface
+	Mapper          *restmapper.DeferredDiscoveryRESTMapper
 
 	config *config.Config
 	helper *helper.Helper
@@ -53,8 +58,14 @@ func (f *Framework) BeforeEach() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Creating a dynamic client")
-	f.DyamicClientSet, err = dynamic.NewForConfig(config)
+	f.DynamicClientSet, err = dynamic.NewForConfig(config)
 	Expect(err).NotTo(HaveOccurred())
+
+	By("Creating a discovery client")
+	f.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(config)
+	Expect(err).NotTo(HaveOccurred())
+
+	f.Mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(f.DiscoveryClient))
 
 	f.helper = helper.NewHelper(f.CMClientSet, f.KubeClientSet)
 }

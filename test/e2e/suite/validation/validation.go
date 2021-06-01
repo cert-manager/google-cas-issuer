@@ -2,14 +2,14 @@ package validation
 
 import (
 	"context"
-
+	"encoding/json"
+	"github.com/jetstack/google-cas-issuer/test/e2e/framework"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-
-	"github.com/jetstack/google-cas-issuer/test/e2e/framework"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = framework.CasesDescribe("validation", func() {
@@ -31,14 +31,28 @@ var _ = framework.CasesDescribe("validation", func() {
 		casYAML := `apiVersion: cas-issuer.jetstack.io/v1alpha1
 kind: GoogleCASIssuer
 metadata:
- name: googlecasissuer-sample
+  name: googlecasissuer-sample
+  namespace: default
 spec:
   project: project-name
   location: europe-west1
   certificateAuthorityID: my-sub-ca
 `
-		decoder := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-		_, err := f.CMClientSet.CertmanagerV1().ClusterIssuers().List(context.TODO(), metav1.ListOptions{})
+		dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+		apiObject := &unstructured.Unstructured{}
+		_, gvk, err := dec.Decode([]byte(casYAML), nil, apiObject)
+		Expect(err).NotTo(HaveOccurred())
+		mapping, err := f.Mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		Expect(err).NotTo(HaveOccurred())
+
+		dr := f.DynamicClientSet.Resource(mapping.Resource).Namespace(apiObject.GetNamespace())
+		jsonObject, err := json.Marshal(apiObject)
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = dr.Patch(context.TODO(), apiObject.GetName(), types.ApplyPatchType, jsonObject, metav1.PatchOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		_, err = f.CMClientSet.CertmanagerV1().ClusterIssuers().List(context.TODO(), metav1.ListOptions{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

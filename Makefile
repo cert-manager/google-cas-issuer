@@ -18,7 +18,7 @@ all: google-cas-issuer
 
 # Run tests
 test: generate fmt vet manifests
-	go test ./... -coverprofile cover.out
+	go test ./api/... ./pkg/... ./cmd/... -coverprofile cover.out
 
 .PHONY: e2e
 e2e: kind kustomize ginkgo kubectl docker-build
