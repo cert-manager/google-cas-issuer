@@ -3,18 +3,26 @@ on: [pull_request, push]
 jobs:
   run_tests:
     runs-on: ubuntu-latest
-    container: golang:1.16
     steps:
-      - name: install kubebuilder
+      -
+        name: install kubebuilder
         run: |
           os=$(go env GOOS)
           arch=$(go env GOARCH)
           curl -L https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/
-          mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
+          sudo mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
           export PATH=$PATH:/usr/local/kubebuilder/bin
+      -
+        name: Install Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: '1.16.4'
       -
         name: Checkout
         uses: actions/checkout@v2
       -
-        name: Run tests
+        name: Run unit tests
         run: make test
+      -
+        name: Run e2e tests
+        run: make e2e

@@ -2,14 +2,12 @@ package validation
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/jetstack/google-cas-issuer/test/e2e/framework"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = framework.CasesDescribe("validation", func() {
@@ -46,13 +44,17 @@ spec:
 		Expect(err).NotTo(HaveOccurred())
 
 		dr := f.DynamicClientSet.Resource(mapping.Resource).Namespace(apiObject.GetNamespace())
-		jsonObject, err := json.Marshal(apiObject)
+
+		// Similar to `kubectl create`
+		_, err = dr.Create(context.TODO(), apiObject, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		_, err = dr.Patch(context.TODO(), apiObject.GetName(), types.ApplyPatchType, jsonObject, metav1.PatchOptions{})
+		// Similar to `kubectl get`
+		_, err = dr.Get(context.TODO(), apiObject.GetName(), metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		_, err = f.CMClientSet.CertmanagerV1().ClusterIssuers().List(context.TODO(), metav1.ListOptions{})
+		// Similar to `kubectl delete`
+		err = dr.Delete(context.TODO(), apiObject.GetName(), metav1.DeleteOptions{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

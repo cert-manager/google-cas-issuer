@@ -24,9 +24,16 @@ test: generate fmt vet manifests
 e2e: kind kustomize ginkgo kubectl docker-build
 	$(KIND) version
 	$(KIND) create cluster --name casissuer-e2e
-	$(KIND) export kubeconfig --kubeconfig kubeconfig.yaml
-	$(KIND) load docker-image ${IMG}
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+	$(KIND) export kubeconfig --name casissuer-e2e --kubeconfig kubeconfig.yaml
+	$(KIND) load docker-image --name casissuer-e2e ${IMG}
+	$(KUBECTL) --kubeconfig kubeconfig.yaml apply -f https://github.com/jetstack/cert-manager/releases/download/v1.3.1/cert-manager.yaml
+	$(KUSTOMIZE) build config/crd | $(KUBECTL) --kubeconfig kubeconfig.yaml apply -f -
+	cd config/manager; $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default | $(KUBECTL) --kubeconfig kubeconfig.yaml apply -f -
+	$(KUBECTL) --kubeconfig kubeconfig.yaml --timeout=120s wait --for=condition=Ready pods --all --namespace kube-system
+	$(KUBECTL) --kubeconfig kubeconfig.yaml --timeout=120s wait --for=condition=Ready pods --all --namespace cert-manager
+	$(GINKGO) -nodes 1 test/e2e/ -- --kubeconfig $$(pwd)/kubeconfig.yaml
+	$(KIND) delete cluster --name casissuer-e2e
 
 # Build google-cas-issuer binary
 google-cas-issuer: generate fmt vet

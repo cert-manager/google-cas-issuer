@@ -28,6 +28,7 @@ spec:
         - --enable-leader-election
         - --zap-devel=true
         image: controller:latest
+        imagePullPolicy: IfNotPresent
         name: google-cas-issuer
         resources:
           limits:
