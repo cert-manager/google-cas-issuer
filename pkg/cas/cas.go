@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/jetstack/google-cas-issuer/api/v1alpha1"
+	"github.com/jetstack/google-cas-issuer/api/v1beta1"
 )
 
 // A Signer is an abstraction of a certificate authority
@@ -46,7 +46,7 @@ type casSigner struct {
 	// parent is the Google cloud project ID in the format "projects/*/locations/*"
 	parent string
 	// spec is a reference to the issuer Spec
-	spec *v1alpha1.GoogleCASIssuerSpec
+	spec *v1beta1.GoogleCASIssuerSpec
 	// namespace is the namespace to look for secrets in
 	namespace string
 
@@ -59,6 +59,7 @@ func (c *casSigner) Sign(csr []byte, expiry time.Duration) (cert []byte, ca []by
 	if err != nil {
 		return nil, nil, err
 	}
+	defer casClient.Close()
 	createCertificateRequest := &casapi.CreateCertificateRequest{
 		Parent: c.parent,
 		// Should this use the certificate request name?
@@ -77,32 +78,34 @@ func (c *casSigner) Sign(csr []byte, expiry time.Duration) (cert []byte, ca []by
 	}
 	createCertResp, err := casClient.CreateCertificate(c.ctx, createCertificateRequest)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("casClient.CreateCertificate failed: %w", err)
 	}
 
-	certbuf := &bytes.Buffer{}
-	certbuf.WriteString(createCertResp.PemCertificate)
+	certBuf := &bytes.Buffer{}
+	certBuf.WriteString(createCertResp.PemCertificate)
 	for _, c := range createCertResp.PemCertificateChain[:len(createCertResp.PemCertificateChain)-1] {
-		certbuf.WriteString(c)
+		certBuf.WriteString(c)
 	}
-	return certbuf.Bytes(), []byte(createCertResp.PemCertificateChain[len(createCertResp.PemCertificateChain)-1]), nil
+	return certBuf.Bytes(), []byte(createCertResp.PemCertificateChain[len(createCertResp.PemCertificateChain)-1]), nil
 }
 
-func NewSigner(ctx context.Context, spec *v1alpha1.GoogleCASIssuerSpec, client client.Client, namespace string) (Signer, error) {
+func NewSigner(ctx context.Context, spec *v1beta1.GoogleCASIssuerSpec, client client.Client, namespace string) (Signer, error) {
 	c, err := newSignerNoSelftest(ctx, spec, client, namespace)
 	if err != nil {
 		return c, err
 	}
-	if _, err := c.createCasClient(); err != nil {
+	casClient, err := c.createCasClient()
+	if err != nil {
 		return nil, err
 	}
+	casClient.Close()
 	return c, nil
 }
 
 // newSignerNoSelftest creates a Signer without doing a self-check, useful for tests
-func newSignerNoSelftest(ctx context.Context, spec *v1alpha1.GoogleCASIssuerSpec, client client.Client, namespace string) (*casSigner, error) {
+func newSignerNoSelftest(ctx context.Context, spec *v1beta1.GoogleCASIssuerSpec, client client.Client, namespace string) (*casSigner, error) {
 	if spec.CaPoolId == "" {
-		return nil, fmt.Errorf("Must specify a CaPoolId")
+		return nil, fmt.Errorf("must specify a CaPoolId")
 	}
 	c := &casSigner{
 		parent:    fmt.Sprintf("projects/%s/locations/%s/caPools/%s", spec.Project, spec.Location, spec.CaPoolId),

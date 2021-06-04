@@ -23,11 +23,11 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/jetstack/google-cas-issuer/api/v1alpha1"
+	"github.com/jetstack/google-cas-issuer/api/v1beta1"
 )
 
 func TestNewSigner(t *testing.T) {
-	spec := &v1alpha1.GoogleCASIssuerSpec{
+	spec := &v1beta1.GoogleCASIssuerSpec{
 		CaPoolId: "test-pool",
 		Project:  "test-project",
 		Location: "test-location",
@@ -48,7 +48,7 @@ func TestNewSigner(t *testing.T) {
 }
 
 func TestNewSignerMissingPoolId(t *testing.T) {
-	spec := &v1alpha1.GoogleCASIssuerSpec{
+	spec := &v1beta1.GoogleCASIssuerSpec{
 		CaPoolId: "",
 	}
 	ctx := context.Background()
@@ -58,7 +58,7 @@ func TestNewSignerMissingPoolId(t *testing.T) {
 	if err == nil {
 		t.Error("NewSigner didn't return an error")
 	}
-	if got, want := err.Error(), "Must specify a CaPoolId"; got != want {
+	if got, want := err.Error(), "must specify a CaPoolId"; got != want {
 		t.Errorf("Wrong error: %s != %s", got, want)
 	}
 }

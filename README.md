@@ -189,14 +189,14 @@ Inspect the sample configurations below and update the PROJECT_ID as appropriate
 
 ```yaml
 # googlecasissuer-sample.yaml
-apiVersion: cas-issuer.jetstack.io/v1alpha1
+apiVersion: cas-issuer.jetstack.io/v1beta1
 kind: GoogleCASIssuer
 metadata:
   name: googlecasissuer-sample
 spec:
   project: $PROJECT_ID
   location: us-east1
-  CaPoolId: my-pool
+  caPoolId: my-pool
   # credentials are optional if workload identity is enabled
   credentials:
     name: "googlesa"
@@ -211,7 +211,7 @@ or
 
 ```yaml
 # googlecasclusterissuer-sample.yaml
-apiVersion: cas-issuer.jetstack.io/v1alpha1
+apiVersion: cas-issuer.jetstack.io/v1beta1
 kind: GoogleCASClusterIssuer
 metadata:
   name: googlecasclusterissuer-sample
