@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The cert-manager Authors.
+Copyright 2021 Jetstack Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package helper
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/dynamic"
 	"time"
 
 	apiutil "github.com/jetstack/cert-manager/pkg/api/util"
@@ -32,14 +33,16 @@ import (
 )
 
 type Helper struct {
-	cmclient   cmversioned.Interface
-	kubeclient kubernetes.Interface
+	cmClient      cmversioned.Interface
+	kubeClient    kubernetes.Interface
+	dynamicClient dynamic.Interface
 }
 
-func NewHelper(cmclient cmversioned.Interface, kubeclient kubernetes.Interface) *Helper {
+func NewHelper(cmclient cmversioned.Interface, kubeclient kubernetes.Interface, dynamicClient dynamic.Interface) *Helper {
 	return &Helper{
-		cmclient:   cmclient,
-		kubeclient: kubeclient,
+		cmClient:      cmclient,
+		kubeClient:    kubeclient,
+		dynamicClient: dynamicClient,
 	}
 }
 
@@ -51,7 +54,7 @@ func (h *Helper) WaitForCertificateReady(ns, name string, timeout time.Duration)
 	err := wait.PollImmediate(time.Second, timeout,
 		func() (bool, error) {
 			var err error
-			certificate, err = h.cmclient.CertmanagerV1().Certificates(ns).Get(context.TODO(), name, metav1.GetOptions{})
+			certificate, err = h.cmClient.CertmanagerV1().Certificates(ns).Get(context.TODO(), name, metav1.GetOptions{})
 			if err != nil {
 				return false, fmt.Errorf("error getting Certificate %s: %v", name, err)
 			}
@@ -72,7 +75,7 @@ func (h *Helper) WaitForCertificateReady(ns, name string, timeout time.Duration)
 
 // WaitForPodsReady waits for all pods in a namespace to become ready
 func (h *Helper) WaitForPodsReady(ns string, timeout time.Duration) error {
-	podsList, err := h.kubeclient.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{})
+	podsList, err := h.kubeClient.CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -81,7 +84,7 @@ func (h *Helper) WaitForPodsReady(ns string, timeout time.Duration) error {
 		err := wait.PollImmediate(time.Second, timeout,
 			func() (bool, error) {
 				var err error
-				pod, err := h.kubeclient.CoreV1().Pods(ns).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+				pod, err := h.kubeClient.CoreV1().Pods(ns).Get(context.TODO(), pod.Name, metav1.GetOptions{})
 				if err != nil {
 					return false, fmt.Errorf("error getting Pod %q: %v", pod.Name, err)
 				}

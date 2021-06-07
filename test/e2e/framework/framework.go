@@ -67,7 +67,7 @@ func (f *Framework) BeforeEach() {
 
 	f.Mapper = restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(f.DiscoveryClient))
 
-	f.helper = helper.NewHelper(f.CMClientSet, f.KubeClientSet)
+	f.helper = helper.NewHelper(f.CMClientSet, f.KubeClientSet, f.DynamicClientSet)
 }
 
 func (f *Framework) Helper() *helper.Helper {

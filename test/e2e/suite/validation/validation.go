@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"time"
 )
 
 var _ = framework.CasesDescribe("validation", func() {
@@ -21,6 +22,12 @@ var _ = framework.CasesDescribe("validation", func() {
 	It("Has cert-manager CRDs installed", func() {
 		By("using the provided CM clientset to get clusterIssuers")
 		_, err := f.CMClientSet.CertmanagerV1().ClusterIssuers().List(context.TODO(), metav1.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("All pods in ns cert-manager are ready", func() {
+		By("waiting until all pods have ready condition")
+		err := f.Helper().WaitForPodsReady("cert-manager", 2*time.Minute)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
