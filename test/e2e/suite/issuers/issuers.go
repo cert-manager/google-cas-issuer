@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
-	"errors"
 	"io/ioutil"
 	"os"
 	"text/template"
@@ -13,17 +12,15 @@ import (
 	"filippo.io/age"
 	certmanagerv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	cmmetav1 "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
+	"github.com/jetstack/google-cas-issuer/test/e2e/framework"
+	"github.com/jetstack/google-cas-issuer/test/e2e/framework/config"
+	"github.com/jetstack/google-cas-issuer/test/e2e/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-	"k8s.io/apimachinery/pkg/util/wait"
-
-	"github.com/jetstack/google-cas-issuer/test/e2e/framework"
-	"github.com/jetstack/google-cas-issuer/test/e2e/framework/config"
-	"github.com/jetstack/google-cas-issuer/test/e2e/util"
 )
 
 const (
@@ -84,7 +81,6 @@ var _ = framework.CasesDescribe("issuers", func() {
 		data, err := ioutil.ReadAll(decSecret)
 		Expect(err).NotTo(HaveOccurred())
 		secretData["google.json"] = data
-		Expect(err).NotTo(HaveOccurred())
 		_, err = f.KubeClientSet.CoreV1().Secrets(cfg.Namespace).Create(
 			context.TODO(),
 			&corev1.Secret{
@@ -121,54 +117,14 @@ var _ = framework.CasesDescribe("issuers", func() {
 		mapping, err := f.Mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		Expect(err).NotTo(HaveOccurred())
 
-		dr := f.DynamicClientSet.Resource(mapping.Resource).Namespace(apiObject.GetNamespace())
+		dr := f.DynamicClientSet.Resource(mapping.Resource)
 
 		By("Creating issuer " + t.Namespace + "/" + t.Name)
-		_, err = dr.Create(context.TODO(), apiObject, metav1.CreateOptions{})
+		_, err = dr.Namespace(t.Namespace).Create(context.TODO(), apiObject, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for issuer to become ready")
-		err = wait.PollImmediate(time.Second, time.Second*10, func() (done bool, err error) {
-			newObj, err := dr.Get(context.TODO(), t.Name, metav1.GetOptions{})
-			if err != nil {
-				return true, err
-			}
-			status, found, err := unstructured.NestedMap(newObj.Object, "status")
-			if err != nil {
-				return false, err
-			}
-			if !found {
-				return false, nil
-			}
-			conditions, ok := status["conditions"].([]interface{})
-			if !ok {
-				return false, errors.New(".status.conditions is not []interface{}")
-			}
-			for _, c := range conditions {
-				cond, ok := c.(map[string]interface{})
-				if !ok {
-					return false, errors.New(".status.conditions doesn't contain a map")
-				}
-				if cond["type"].(string) != "Ready" {
-					continue
-				}
-				if cond["status"].(string) == "True" {
-					return true, nil
-				} else {
-					reasonMessage := "Issuer is not ready: "
-					reason, found := cond["reason"]
-					if found {
-						reasonMessage = reasonMessage + " " + reason.(string)
-					}
-					message, found := cond["message"]
-					if found {
-						reasonMessage = reasonMessage + " " + message.(string)
-					}
-					return false, errors.New(reasonMessage)
-				}
-			}
-			return false, nil
-		})
+		err = f.Helper().WaitForDynamicReady(dr, t.Name, t.Namespace, 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating a certificate")
@@ -192,8 +148,13 @@ var _ = framework.CasesDescribe("issuers", func() {
 			},
 		}, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
+
 		By("Waiting for certificate to become ready")
 		_, err = f.Helper().WaitForCertificateReady(cfg.Namespace, certName, 10*time.Second)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Verifying chain and CA")
+		err = f.Helper().VerifyCMCertificate(cfg.Namespace, certName)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -211,7 +172,6 @@ var _ = framework.CasesDescribe("issuers", func() {
 		data, err := ioutil.ReadAll(decSecret)
 		Expect(err).NotTo(HaveOccurred())
 		secretData["google.json"] = data
-		Expect(err).NotTo(HaveOccurred())
 		_, err = f.KubeClientSet.CoreV1().Secrets("cert-manager").Create(
 			context.TODO(),
 			&corev1.Secret{
@@ -254,52 +214,12 @@ var _ = framework.CasesDescribe("issuers", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for issuer to become ready")
-		err = wait.PollImmediate(time.Second, time.Second*10, func() (done bool, err error) {
-			newObj, err := dr.Get(context.TODO(), t.Name, metav1.GetOptions{})
-			if err != nil {
-				return true, err
-			}
-			status, found, err := unstructured.NestedMap(newObj.Object, "status")
-			if err != nil {
-				return false, err
-			}
-			if !found {
-				return false, nil
-			}
-			conditions, ok := status["conditions"].([]interface{})
-			if !ok {
-				return false, errors.New(".status.conditions is not []interface{}")
-			}
-			for _, c := range conditions {
-				cond, ok := c.(map[string]interface{})
-				if !ok {
-					return false, errors.New(".status.conditions doesn't contain a map")
-				}
-				if cond["type"].(string) != "Ready" {
-					continue
-				}
-				if cond["status"].(string) == "True" {
-					return true, nil
-				} else {
-					reasonMessage := "Issuer is not ready: "
-					reason, found := cond["reason"]
-					if found {
-						reasonMessage = reasonMessage + " " + reason.(string)
-					}
-					message, found := cond["message"]
-					if found {
-						reasonMessage = reasonMessage + " " + message.(string)
-					}
-					return false, errors.New(reasonMessage)
-				}
-			}
-			return false, nil
-		})
+		err = f.Helper().WaitForDynamicReady(dr, t.Name, "", 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating a certificate")
 		certName := "casissuer-e2e-" + util.RandomString(5)
-		_, err = f.CMClientSet.CertmanagerV1().Certificates(cfg.Namespace).Create(context.TODO(), &certmanagerv1.Certificate{
+		cert, err := f.CMClientSet.CertmanagerV1().Certificates(cfg.Namespace).Create(context.TODO(), &certmanagerv1.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      certName,
 				Namespace: cfg.Namespace,
@@ -318,9 +238,13 @@ var _ = framework.CasesDescribe("issuers", func() {
 			},
 		}, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
+
 		By("Waiting for certificate to become ready")
-		_, err = f.Helper().WaitForCertificateReady(cfg.Namespace, certName, 10*time.Second)
+		_, err = f.Helper().WaitForCertificateReady(cert.ObjectMeta.Namespace, cert.ObjectMeta.Name, 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 
+		By("Verifying chain and CA")
+		err = f.Helper().VerifyCMCertificate(cert.ObjectMeta.Namespace, cert.ObjectMeta.Name)
+		Expect(err).NotTo(HaveOccurred())
 	})
 })
