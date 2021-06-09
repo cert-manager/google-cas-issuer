@@ -147,9 +147,10 @@ gcloud privateca pools add-iam-policy-binding my-pool --role=roles/privateca.cer
 
 #### Inside GKE with workload identity
 
-One important requirement for your GKE cluster is that it must be set up to
-use the [workload
-identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity). If you want to create a cluster from scratch to test the issuer, you can do:
+[Workload identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) lets you bind a
+Kubernetes service account to a Google Cloud service account. In order to take advantage of this, your
+GKE cluster must be set up to use it. If you want to create a cluster from scratch to test the issuer,
+you can enable it like so:
 
 ```sh
 gcloud container clusters create test --region us-east1 --num-nodes=1 --preemptible \
@@ -157,7 +158,7 @@ gcloud container clusters create test --region us-east1 --num-nodes=1 --preempti
 ```
 
 If you want to use the CAS issuer in an existing cluster, you can still
-enable the "workload identity" feature with:
+enable the workload identity feature with:
 
 ```sh
 gcloud container clusters update CLUSTER_NAME --region=CLUSTER_REGION \
@@ -200,7 +201,7 @@ The service account key should be stored in a Kubernetes secret in your cluster 
 
 cert-manager is configured for Google CAS using either a `GoogleCASIssuer` (namespace-scoped) or a `GoogleCASClusterIssuer` (cluster-wide).
 
-Inspect the sample configurations below and update the PROJECT_ID as appropriate. Credentials can be omitted if you have configured the CSA issuer controller with Workload Identity.
+Inspect the sample configurations below and update the PROJECT_ID as appropriate. Credentials can be omitted if you have configured the CAS issuer controller with Workload Identity.
 
 ```yaml
 # googlecasissuer-sample.yaml
