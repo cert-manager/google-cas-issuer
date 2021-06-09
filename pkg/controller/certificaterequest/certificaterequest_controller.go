@@ -1,5 +1,5 @@
 /*
-Copyright 2020 the cert-manager authors.
+Copyright 2021 Jetstack Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	casapi "github.com/jetstack/google-cas-issuer/api/v1alpha1"
+	casapi "github.com/jetstack/google-cas-issuer/api/v1beta1"
 )
 
 const (
@@ -139,7 +139,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// From cert-manager v1.3 onwards, CertificateRequests must be approved before they are signed.
 	if !viper.GetBool("disable-approval-check") {
 		log.Info("Checking whether CR has been approved", "cr", req.NamespacedName)
-		if !cmutil.CertificateRequestIsApproved(&certificateRequest){
+		if !cmutil.CertificateRequestIsApproved(&certificateRequest) {
 			msg := "certificate request is not approved yet"
 			log.Info(msg, "cr", req.NamespacedName)
 			r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonCRNotApproved, msg)
@@ -211,7 +211,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	signer, err := cas.NewSigner(ctx, spec, r.Client, ns)
 	if err != nil {
 		log.Error(err, "couldn't construct signer for certificate", "cr", req.NamespacedName)
-		msg := "Couldn't construct signer, check if CA " + spec.CertificateAuthorityID + "is ready"
+		msg := "Couldn't construct signer, check if CA pool " + spec.CaPoolId + "is ready"
 		r.Recorder.Event(&certificateRequest, eventTypeWarning, reasonSignerNotReady, msg)
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}

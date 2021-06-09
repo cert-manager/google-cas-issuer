@@ -54,10 +54,7 @@ jobs:
         run: /bin/bash -c 'echo ::set-output name=VERSION::$(echo ${GITHUB_REF##*/} | cut -c2-)'
       -
         name: install controller-gen
-        working-directory: /
-        env:
-          GO111MODULE: on
-        run: go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1
+        run: go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0
       -
         name: install kustomize
         working-directory: /

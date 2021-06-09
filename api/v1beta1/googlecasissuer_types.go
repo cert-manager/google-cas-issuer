@@ -1,5 +1,5 @@
 /*
-Copyright 2020 the cert-manager authors.
+Copyright 2021 Jetstack Ltd.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1beta1
 
 import (
 	cmmetav1 "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
@@ -35,8 +35,14 @@ type GoogleCASIssuerSpec struct {
 	// Location is the Google Cloud Project Location
 	Location string `json:"location,omitempty"`
 
-	// CertificateAuthorityID is The ID of the Google Private certificate authority that will sign certificates
-	CertificateAuthorityID string `json:"certificateAuthorityID,omitempty"`
+	// CaPoolId is the id of the CA pool to issue certificates from
+	CaPoolId string `json:"caPoolId,omitempty"`
+
+	// CertificateAuthorityId is specific certificate authority to
+	// use to sign. Omit in order to load balance across all CAs
+	// in the pool
+	// +optional
+	CertificateAuthorityId string `json:"certificateAuthorityId,omitempty"`
 
 	// Credentials is a reference to a Kubernetes Secret Key that contains Google Service Account Credentials
 	// +optional
