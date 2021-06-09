@@ -17,10 +17,12 @@ Enable the Certificate Authority API (`privateca.googleapis.com`) in your GCP pr
 
 You can create a ca pool containing a certificate authority in your current Google project with:
 
-```sh
+```shell
 gcloud privateca pools create my-pool --location us-east1
-gcloud privateca roots create my-ca --pool my-pool --key-algorithm "ec-p384-sha384" --subject="CN=intermediate,O=my-ca,OU=my-sub-ca" --max-chain-length=1
+gcloud privateca roots create my-ca --pool my-pool --key-algorithm "ec-p384-sha384" --subject="CN=my-root,O=my-ca,OU=my-ou" --max-chain-length=2 --location us-east1
 ```
+
+You should also enable the root CA you just created when prompted by `gcloud`.
 
 > It is recommended to create subordinate CAs for signing leaf
 > certificates. See the [official
@@ -32,11 +34,18 @@ If not already running in the cluster, install cert-manager by following the [of
 
 ### Installing Google CAS Issuer for cert-manager
 
-Install the Google CAS Issuer CRDs in `config/crd`. These manifests use kustomization (hence the `-k` option).
+Assuming that you have installed cert-manager in the `cert-manager` namespace, you can use a single kubectl
+command to install Google CAS Issuer. 
+Visit the [GitHub releases](https://github.com/jetstack/google-cas-issuer/releases), select the latest release
+and copy the command, e.g.
 
 ```shell
-kubectl apply -k config/crd
+kubectl apply -f https://github.com/jetstack/google-cas-issuer/releases/download/v0.5.0/google-cas-issuer-v0.5.0.yaml
 ```
+
+You can then skip to the [Setting up Google Cloud IAM](#setting-up-google-cloud-iam) section.
+
+#### Customise the deployment (for developers)
 
 Examine the ClusterRole and ClusterRolebinding in `config/rbac/role.yaml` and `config/rbac/role_binding.yaml`. By default, these give the `ksa-google-cas-issuer` Kubernetes service account in the cert-manager namespace all the necessary permissions. Customise these to your needs.
 
@@ -47,7 +56,13 @@ kubectl apply -f config/rbac/role.yaml
 kubectl apply -f config/rbac/role_binding.yaml
 ```
 
-#### Build and push the controller image
+Install the Google CAS Issuer CRDs in `config/crd`. These manifests use kustomization (hence the `-k` option).
+
+```shell
+kubectl apply -k config/crd
+```
+
+##### Build and push the controller image
 
 **Note**: you can skip this step if using the public images at [quay.io](https://quay.io/repository/jetstack/cert-manager-google-cas-issuer?tag=latest&tab=tags).
 
@@ -124,7 +139,7 @@ Firstly, create a Google Cloud IAM service account. This service account will be
 gcloud iam service-accounts create sa-google-cas-issuer
 ```
 
-Apply the appropriate IAM bindings to this account. This example permits the least privilege, to create certificates (ie `roles/privateca.certificates.create`) from a specified suboordinate CA (`my-sub-ca`), but you can use other roles as necessary (see [Predefined Roles](https://cloud.google.com/certificate-authority-service/docs/reference/permissions-and-roles#predefined_roles) for more details).
+Apply the appropriate IAM bindings to this account. This example permits the least privilege, to create certificates (ie `roles/privateca.certificates.create`) from a specified CA pool (`my-pool`), but you can use other roles as necessary (see [Predefined Roles](https://cloud.google.com/certificate-authority-service/docs/reference/permissions-and-roles#predefined_roles) for more details).
 
 ```shell
 gcloud privateca pools add-iam-policy-binding my-pool --role=roles/privateca.certificateRequester --member="serviceAccount:sa-google-cas-issuer@$(gcloud config get-value project | tr ':' '/').iam.gserviceaccount.com" --location=us-east1
@@ -171,14 +186,14 @@ kubectl annotate serviceaccount \
 Create a key for the service account and download it to a local JSON file.
 
 ```shell
-gcloud iam service-accounts keys create $(gcloud config get-value project | tr ':' '/')-keyid.json \
+gcloud iam service-accounts keys create $(gcloud config get-value project | tr ':' '/')-key.json \
   --iam-account sa-google-cas-issuer@$(gcloud config get-value project | tr ':' '/').iam.gserviceaccount.com
 ```
 
 The service account key should be stored in a Kubernetes secret in your cluster so it can be accessed by the CAS Issuer controller.
 
 ```shell
- kubectl -n cert-manager create secret generic googlesa --from-file $(gcloud config get-value project | tr ':' '/')-keyid.json
+ kubectl -n cert-manager create secret generic googlesa --from-file $(gcloud config get-value project | tr ':' '/')-key.json
 ```
 
 ### Configuring the Issuer
@@ -200,7 +215,7 @@ spec:
   # credentials are optional if workload identity is enabled
   credentials:
     name: "googlesa"
-    key: "$PROJECT_ID-keyid.json"
+    key: "$PROJECT_ID-key.json"
 ```
 
 ```shell
@@ -222,7 +237,7 @@ spec:
   # credentials are optional if workload identity is enabled
   credentials:
     name: "googlesa"
-    key: "$PROJECT_ID-keyid.json"
+    key: "$PROJECT_ID-key.json"
 ```
 
 ```shell
@@ -267,8 +282,8 @@ In short time, the certificate will be requested and made available to the clust
 
 ```shell
 kubectl get certificates,secret
-NAME                                          READY   SECRET         AGE
-certificate.cert-manager.io/bar-certificate   True    demo-cert-tls  1m
+NAME                                           READY   SECRET         AGE
+certificate.cert-manager.io/demo-certificate   True    demo-cert-tls  1m
 
 NAME                                     TYPE                                  DATA   AGE
 secret/demo-cert-tls                     kubernetes.io/tls                     3      1m

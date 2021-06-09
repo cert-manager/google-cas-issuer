@@ -32,7 +32,7 @@ e2e: kind kustomize ginkgo kubectl docker-build
 	$(KUSTOMIZE) build config/default | $(KUBECTL) --kubeconfig kubeconfig.yaml apply -f -
 	timeout 5m bash -c 'until $(KUBECTL) --kubeconfig kubeconfig.yaml --timeout=120s wait --for=condition=Ready pods --all --namespace kube-system; do sleep 1; done'
 	timeout 5m bash -c 'until $(KUBECTL) --kubeconfig kubeconfig.yaml --timeout=120s wait --for=condition=Ready pods --all --namespace cert-manager; do sleep 1; done'
-	$(GINKGO) -nodes 1 test/e2e/ -- --kubeconfig $$(pwd)/kubeconfig.yaml --project jetstack-cas --location europe-west1 --capoolid casutil-test3
+	$(GINKGO) -nodes 1 test/e2e/ -- --kubeconfig $$(pwd)/kubeconfig.yaml --project jetstack-cas --location europe-west1 --capoolid google-cas-e2e
 	$(KIND) delete cluster --name casissuer-e2e
 
 # Build google-cas-issuer binary
