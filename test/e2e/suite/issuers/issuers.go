@@ -124,7 +124,7 @@ var _ = framework.CasesDescribe("issuers", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for issuer to become ready")
-		err = f.Helper().WaitForDynamicReady(dr, t.Name, t.Namespace, 10*time.Second)
+		err = f.Helper().WaitForUnstructuredReady(dr, t.Name, t.Namespace, 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating a certificate")
@@ -214,7 +214,7 @@ var _ = framework.CasesDescribe("issuers", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for issuer to become ready")
-		err = f.Helper().WaitForDynamicReady(dr, t.Name, "", 10*time.Second)
+		err = f.Helper().WaitForUnstructuredReady(dr, t.Name, "", 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating a certificate")

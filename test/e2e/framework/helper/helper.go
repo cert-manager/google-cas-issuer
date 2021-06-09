@@ -112,19 +112,19 @@ func (h *Helper) WaitForPodsReady(ns string, timeout time.Duration) error {
 	return nil
 }
 
-// WaitForDynamicReady waits for a dynamic.NamespaceableResourceInterface to become ready
-func (h *Helper) WaitForDynamicReady(dr dynamic.NamespaceableResourceInterface, name, namespace string, timeout time.Duration) error {
+// WaitForUnstructuredReady waits for an unstructured.Unstructured object to become ready
+func (h *Helper) WaitForUnstructuredReady(dr dynamic.NamespaceableResourceInterface, name, namespace string, timeout time.Duration) error {
 	err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-		var newObj *unstructured.Unstructured
+		var obj *unstructured.Unstructured
 		if len(namespace) > 0 {
-			newObj, err = dr.Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+			obj, err = dr.Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 		} else {
-			newObj, err = dr.Get(context.TODO(), name, metav1.GetOptions{})
+			obj, err = dr.Get(context.TODO(), name, metav1.GetOptions{})
 		}
 		if err != nil {
 			return true, err
 		}
-		status, found, err := unstructured.NestedMap(newObj.Object, "status")
+		status, found, err := unstructured.NestedMap(obj.Object, "status")
 		if err != nil {
 			return false, err
 		}
