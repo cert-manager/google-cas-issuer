@@ -140,7 +140,7 @@ z5B9C4cjanJ67w==
 				PemCertificate: `-----BEGIN CERTIFICATE-----
 leaf
 -----END CERTIFICATE-----`,
-PemCertificateChain: []string{`-----BEGIN CERTIFICATE-----
+				PemCertificateChain: []string{`-----BEGIN CERTIFICATE-----
 intermediate2
 -----END CERTIFICATE-----`, `-----BEGIN CERTIFICATE-----
 intermediate1
