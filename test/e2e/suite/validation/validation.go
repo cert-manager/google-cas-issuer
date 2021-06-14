@@ -2,13 +2,15 @@ package validation
 
 import (
 	"context"
-	"github.com/jetstack/google-cas-issuer/test/e2e/framework"
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-	"time"
+
+	"github.com/jetstack/google-cas-issuer/test/e2e/framework"
 )
 
 var _ = framework.CasesDescribe("validation", func() {
