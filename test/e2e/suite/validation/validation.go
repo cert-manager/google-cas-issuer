@@ -2,7 +2,6 @@ package validation
 
 import (
 	"context"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -24,12 +23,6 @@ var _ = framework.CasesDescribe("validation", func() {
 	It("Has cert-manager CRDs installed", func() {
 		By("using the provided CM clientset to get clusterIssuers")
 		_, err := f.CMClientSet.CertmanagerV1().ClusterIssuers().List(context.TODO(), metav1.ListOptions{})
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	It("All pods in ns cert-manager are ready", func() {
-		By("waiting until all pods have ready condition")
-		err := f.Helper().WaitForPodsReady("cert-manager", 2*time.Minute)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
