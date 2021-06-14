@@ -20,8 +20,10 @@ package cas
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/security/privateca/apiv1"
@@ -39,7 +41,7 @@ import (
 // A Signer is an abstraction of a certificate authority
 type Signer interface {
 	// Sign signs a CSR and returns a cert and chain
-	Sign([]byte, time.Duration) ([]byte, []byte, error)
+	Sign(csr []byte, expiry time.Duration) (cert []byte, ca []byte, err error)
 }
 
 type casSigner struct {
@@ -80,13 +82,7 @@ func (c *casSigner) Sign(csr []byte, expiry time.Duration) (cert []byte, ca []by
 	if err != nil {
 		return nil, nil, fmt.Errorf("casClient.CreateCertificate failed: %w", err)
 	}
-
-	certBuf := &bytes.Buffer{}
-	certBuf.WriteString(createCertResp.PemCertificate)
-	for _, c := range createCertResp.PemCertificateChain[:len(createCertResp.PemCertificateChain)-1] {
-		certBuf.WriteString(c)
-	}
-	return certBuf.Bytes(), []byte(createCertResp.PemCertificateChain[len(createCertResp.PemCertificateChain)-1]), nil
+	return extractCertAndCA(createCertResp)
 }
 
 func NewSigner(ctx context.Context, spec *v1beta1.GoogleCASIssuerSpec, client client.Client, namespace string) (Signer, error) {
@@ -147,4 +143,36 @@ func (c *casSigner) createCasClient() (*privateca.CertificateAuthorityClient, er
 		casClient = c
 	}
 	return casClient, nil
+}
+
+// extractCertAndCA takes a response from the Google CAS API and formats it into a format
+// expected by cert-manager. A Certificate contains the leaf in the PemCertificate field
+// and the rest of the chain down to the root in the PemCertificateChain. cert-manager
+// expects the leaf and all intermediates in the certificate field, stacked in PEM format
+// with the root in the CA field.
+//
+// Additionally, for each PEM block, all whitespace is trimmed and a single new line is
+// appended, in case software consuming the resulting secret writes the PEM blocks
+// directly into a config file without parsing them.
+func extractCertAndCA(resp *casapi.Certificate) (cert []byte, ca []byte, err error) {
+	if resp == nil {
+		return nil, nil, errors.New("extractCertAndCA: certificate response is nil")
+	}
+	certBuf := &bytes.Buffer{}
+
+	// Write the leaf to the buffer
+	certBuf.WriteString(strings.TrimSpace(resp.PemCertificate))
+	certBuf.WriteRune('\n')
+
+	// Write any remaining certificates except for the root-most one
+	for _, c := range resp.PemCertificateChain[:len(resp.PemCertificateChain)-1] {
+		certBuf.WriteString(strings.TrimSpace(c))
+		certBuf.WriteRune('\n')
+	}
+
+	// Return the root-most certificate in the CA field.
+	return certBuf.Bytes(), []byte(
+		strings.TrimSpace(
+			resp.PemCertificateChain[len(resp.PemCertificateChain)-1],
+		) + "\n"), nil
 }
