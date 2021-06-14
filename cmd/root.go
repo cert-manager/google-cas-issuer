@@ -45,7 +45,7 @@ func init() {
 	// Issuer flags
 	rootCmd.PersistentFlags().String("metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	rootCmd.PersistentFlags().Bool("enable-leader-election", false, "Enable leader election for controller manager.")
-	rootCmd.PersistentFlags().String("leader-election-id", "cm-google-cas-issuer", "Enable leader election for controller manager.")
+	rootCmd.PersistentFlags().String("leader-election-id", "cm-google-cas-issuer", "The ID of the leader election lock that the controller should attempt to acquire.")
 	rootCmd.PersistentFlags().String("cluster-resource-namespace", "cert-manager", "The namespace for secrets in which cluster-scoped resources are found.")
 	rootCmd.PersistentFlags().Bool("disable-approval-check", false, "Don't check whether a CertificateRequest is approved before signing. For compatibility with cert-manager <v1.3.0.")
 
