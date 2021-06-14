@@ -17,10 +17,6 @@ limitations under the License.
 package cmd
 
 import (
-	"crypto/rand"
-	"math/big"
-	"os"
-
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -49,6 +45,7 @@ func init() {
 	// Issuer flags
 	rootCmd.PersistentFlags().String("metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	rootCmd.PersistentFlags().Bool("enable-leader-election", false, "Enable leader election for controller manager.")
+	rootCmd.PersistentFlags().String("leader-election-id", "cm-google-cas-issuer", "Enable leader election for controller manager.")
 	rootCmd.PersistentFlags().String("cluster-resource-namespace", "cert-manager", "The namespace for secrets in which cluster-scoped resources are found.")
 	rootCmd.PersistentFlags().Bool("disable-approval-check", false, "Don't check whether a CertificateRequest is approved before signing. For compatibility with cert-manager <v1.3.0.")
 
@@ -78,25 +75,13 @@ func root() error {
 		return err
 	}
 
-	// Get the hostname for leader election
-	hostname, err := os.Hostname()
-	if err != nil {
-		// fall back to a random number
-		random, err := rand.Int(rand.Reader, big.NewInt(999999999999))
-		if err != nil {
-			setupLog.Error(err, "unable to get a suitable leader election id")
-			os.Exit(1)
-		}
-		hostname = random.String()
-	}
-
 	// Create controller-manager
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: viper.GetString("metrics-addr"),
 		Port:               9443,
 		LeaderElection:     viper.GetBool("enable-leader-election"),
-		LeaderElectionID:   hostname,
+		LeaderElectionID:   viper.GetString("leader-election-id"),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
