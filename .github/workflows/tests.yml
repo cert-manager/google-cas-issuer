@@ -6,6 +6,9 @@ on:
   pull_request:
     branches:
       - main
+  schedule:
+    # At 03:23 on every 3rd day
+    - cron: "23 3 */3 * *"
 jobs:
   run_tests:
     runs-on: ubuntu-latest
