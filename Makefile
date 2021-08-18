@@ -26,7 +26,7 @@ e2e: kind kustomize ginkgo kubectl docker-build
 	$(KIND) create cluster --name casissuer-e2e
 	$(KIND) export kubeconfig --name casissuer-e2e --kubeconfig kubeconfig.yaml
 	$(KIND) load docker-image --name casissuer-e2e ${IMG}
-	$(KUBECTL) --kubeconfig kubeconfig.yaml apply -f https://github.com/jetstack/cert-manager/releases/download/v1.3.1/cert-manager.yaml
+	$(KUBECTL) --kubeconfig kubeconfig.yaml apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.1/cert-manager.yaml
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) --kubeconfig kubeconfig.yaml apply -f -
 	cd config/manager; $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | $(KUBECTL) --kubeconfig kubeconfig.yaml apply -f -
@@ -113,7 +113,7 @@ ifeq (, $(shell which kind))
 	set -e ;\
 	TEMPDIR=$(mktemp -d);\
 	cd $$TEMPDIR ;\
-	GO111MODULE=on go get sigs.k8s.io/kind@v0.11.0 ;\
+	GO111MODULE=on go get sigs.k8s.io/kind@v0.11.1 ;\
 	}
 KIND=$(GOBIN)/kind
 else
