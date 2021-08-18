@@ -109,12 +109,13 @@ var (
 				RequestId: uuid.New().String(),
 			})
 			fatalIf(err)
-			resp, err := op.Wait(context.Background())
+			err = op.Wait(context.Background())
 			// Seems this always errors with
 			// mismatched message type: got "google.protobuf.Empty" want "google.cloud.security.privateca.v1.CaPool"
 			// but the call succeeds?
 			fatalIf(err)
-			fmt.Printf("deleted %s\n", resp.Name)
+			fmt.Printf("deleted projects/%s/locations/%s/caPools/%s\n", viper.GetString("project"),
+				viper.GetString("location"), args[0])
 		},
 	}
 )
