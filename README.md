@@ -15,7 +15,7 @@ Enable the Certificate Authority API (`privateca.googleapis.com`) in your GCP pr
 
 #### CAS-managed Certificate Authorities
 
-You can create a ca pool containing a certificate authority in your current Google project with:
+You can create a ca pool containing a certificate authority in your current Google project with: 
 
 ```shell
 gcloud privateca pools create my-pool --location us-east1
