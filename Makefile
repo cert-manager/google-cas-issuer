@@ -147,4 +147,3 @@ KUBECTL=$(GOBIN)/kubectl
 else
 KUBECTL=$(shell which kubectl)
 endif
-
