@@ -46,7 +46,7 @@ jobs:
 
   prepare_release:
     runs-on: ubuntu-latest
-    container: golang:1.16
+    container: golang:1.19
     steps:
       -
         name: extract version
