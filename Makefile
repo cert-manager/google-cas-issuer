@@ -99,7 +99,7 @@ ifeq (, $(shell which kustomize))
 	set -e ;\
 	TEMPDIR=$(mktemp -d);\
 	cd $$TEMPDIR ;\
-	GO111MODULE=on go get sigs.k8s.io/kustomize/kustomize/v3 ;\
+	GO111MODULE=on go install sigs.k8s.io/kustomize/kustomize/v3@v4.5.7 ;\
 	}
 KUSTOMIZE=$(GOBIN)/kustomize
 else
@@ -113,7 +113,7 @@ ifeq (, $(shell which kind))
 	set -e ;\
 	TEMPDIR=$(mktemp -d);\
 	cd $$TEMPDIR ;\
-	GO111MODULE=on go get sigs.k8s.io/kind@v0.11.1 ;\
+	GO111MODULE=on go install sigs.k8s.io/kind@v0.11.1 ;\
 	}
 KIND=$(GOBIN)/kind
 else
@@ -127,7 +127,7 @@ ifeq (, $(shell which ginkgo))
 	set -e ;\
 	TEMPDIR=$(mktemp -d);\
 	cd $$TEMPDIR ;\
-	GO111MODULE=on go get github.com/onsi/ginkgo/ginkgo ;\
+	GO111MODULE=on go install github.com/onsi/ginkgo/ginkgo ;\
 	}
 GINKGO=$(GOBIN)/ginkgo
 else

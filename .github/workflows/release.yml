@@ -60,7 +60,7 @@ jobs:
         working-directory: /
         env:
           GO111MODULE: on
-        run: go get sigs.k8s.io/kustomize/kustomize/v3
+        run: go install sigs.k8s.io/kustomize/kustomize/v3@v4.5.7
       -
         name: checkout repository
         uses: actions/checkout@v2
