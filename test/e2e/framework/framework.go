@@ -1,7 +1,7 @@
 package framework
 
 import (
-	cmversioned "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
+	cmversioned "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned"
 	"github.com/jetstack/google-cas-issuer/test/e2e/framework/config"
 	"github.com/jetstack/google-cas-issuer/test/e2e/framework/helper"
 	. "github.com/onsi/ginkgo"
