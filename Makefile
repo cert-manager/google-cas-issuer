@@ -26,7 +26,7 @@ e2e: kind kustomize ginkgo kubectl docker-build
 	$(KIND) create cluster --name casissuer-e2e
 	$(KIND) export kubeconfig --name casissuer-e2e --kubeconfig kubeconfig.yaml
 	$(KIND) load docker-image --name casissuer-e2e ${IMG}
-	$(KUBECTL) --kubeconfig kubeconfig.yaml apply -f https://github.com/jetstack/cert-manager/releases/download/v1.7.0/cert-manager.yaml
+	$(KUBECTL) --kubeconfig kubeconfig.yaml apply -f https://github.com/jetstack/cert-manager/releases/download/v1.9.1/cert-manager.yaml
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) --kubeconfig kubeconfig.yaml apply -f -
 	cd config/manager; $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | $(KUBECTL) --kubeconfig kubeconfig.yaml apply -f -
