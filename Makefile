@@ -113,7 +113,7 @@ ifeq (, $(shell which kind))
 	set -e ;\
 	TEMPDIR=$(mktemp -d);\
 	cd $$TEMPDIR ;\
-	GO111MODULE=on go get sigs.k8s.io/kind@v0.11.1 ;\
+	GO111MODULE=on go get sigs.k8s.io/kind@v0.14.0;\
 	}
 KIND=$(GOBIN)/kind
 else
