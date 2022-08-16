@@ -2,9 +2,8 @@
 IMG ?= quay.io/jetstack/cert-manager-google-cas-issuer:latest
 
 BINDIR ?= $(CURDIR)/bin
-
-GOOS=$(shell go env GOOS)
-GOARCH=$(shell go env GOARCH)
+ARCH=$(shell go env GOARCH)
+OS=$(shell go env GOOS)
 
 all: google-cas-issuer
 
