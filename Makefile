@@ -1,7 +1,5 @@
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/jetstack/cert-manager-google-cas-issuer:latest
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true"
 
 BINDIR ?= $(CURDIR)/bin
 
@@ -56,7 +54,7 @@ deploy: manifests $(BINDIR)/kustomize
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: $(BINDIR)/controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=google-cas-issuer-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) crd rbac:roleName=google-cas-issuer-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
 fmt:
