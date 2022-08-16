@@ -1,27 +1,25 @@
-
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/jetstack/cert-manager-google-cas-issuer:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
+BINDIR ?= $(CURDIR)/bin
 
 GOOS=$(shell go env GOOS)
 GOARCH=$(shell go env GOARCH)
 
 all: google-cas-issuer
 
+.PHONY: clean
+clean: ## clean up created files
+	rm -rf $(BINDIR) \
+
 # Run tests
 test: generate fmt vet manifests
 	go test ./api/... ./pkg/... ./cmd/... -coverprofile cover.out
 
 .PHONY: e2e
-e2e: kind kustomize ginkgo kubectl docker-build
+e2e: $(BINDIR)/kind $(BINDIR)/kustomize $(BINDIR)/ginkgo $(BINDIR)/kubectl docker-build
 	$(KIND) version
 	$(KIND) create cluster --name casissuer-e2e
 	$(KIND) export kubeconfig --name casissuer-e2e --kubeconfig kubeconfig.yaml
@@ -44,20 +42,20 @@ run: generate fmt vet manifests
 	go run ./main.go --zap-devel=true
 
 # Install CRDs into a cluster
-install: manifests kustomize
+install: manifests $(BINDIR)/kustomize
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
 # Uninstall CRDs from a cluster
-uninstall: manifests kustomize
+uninstall: manifests $(BINDIR)/kustomize
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests kustomize
-	cd config/manager && kustomize edit set image controller=${IMG}
+deploy: manifests $(BINDIR)/kustomize
+	cd config/manager && $(BINDIR)/kustomize edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen
+manifests: $(BINDIR)/controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=google-cas-issuer-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
@@ -69,7 +67,7 @@ vet:
 	go vet ./...
 
 # Generate code
-generate: controller-gen
+generate: $(BINDIR)/controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
@@ -80,70 +78,27 @@ docker-build: test
 docker-push:
 	docker push ${IMG}
 
-# find or download controller-gen
-controller-gen:
-ifeq (, $(shell which controller-gen))
-	@{ \
-	set -e ;\
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 ;\
-	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
+$(BINDIR):
+	mkdir -p ./bin
 
-# find or download kustomize
-kustomize:
-ifeq (, $(shell which kustomize))
-	@{ \
-	set -e ;\
-	TEMPDIR=$(mktemp -d);\
-	cd $$TEMPDIR ;\
-	GO111MODULE=on go install sigs.k8s.io/kustomize/kustomize/v3@v4.5.7 ;\
-	}
-KUSTOMIZE=$(GOBIN)/kustomize
-else
-KUSTOMIZE=$(shell which kustomize)
-endif
+$(BINDIR)/controller-gen: $(BINDIR)
+	cd hack/tools && go build -o $@ sigs.k8s.io/controller-tools/cmd/controller-gen
+CONTROLLER_GEN=$(BINDIR)/controller-gen
 
-# find or download kind
-kind:
-ifeq (, $(shell which kind))
-	@{ \
-	set -e ;\
-	TEMPDIR=$(mktemp -d);\
-	cd $$TEMPDIR ;\
-	GO111MODULE=on go install sigs.k8s.io/kind@v0.11.1 ;\
-	}
-KIND=$(GOBIN)/kind
-else
-KIND=$(shell which kind)
-endif
+$(BINDIR)/kustomize: $(BINDIR)
+	cd hack/tools && go build -o $@ sigs.k8s.io/kustomize/kustomize/v3
+KUSTOMIZE=$(BINDIR)/kustomize
 
-# find or download ginkgo
-ginkgo:
-ifeq (, $(shell which ginkgo))
-	@{ \
-	set -e ;\
-	TEMPDIR=$(mktemp -d);\
-	cd $$TEMPDIR ;\
-	GO111MODULE=on go install github.com/onsi/ginkgo/ginkgo ;\
-	}
-GINKGO=$(GOBIN)/ginkgo
-else
-GINKGO=$(shell which ginkgo)
-endif
+$(BINDIR)/kind: $(BINDIR)
+	cd hack/tools && go build -o $@ sigs.k8s.io/kind
+KIND=$(BINDIR)/kind
+
+$(BINDIR)/ginkgo: $(BINDIR)
+	cd hack/tools && go build -o $@ github.com/onsi/ginkgo/v2/ginkgo
+GINKGO=$(BINDIR)/ginkgo
 
 # find or download kubectl
-kubectl:
-ifeq (, $(shell which kubectl))
-	@{ \
-	set -e ;\
-	curl -LO "https://dl.k8s.io/release/$$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/$(GOOS)/$(GOARCH)/kubectl" ;\
-	chmod a+x kubectl ;\
-	mv kubectl $(GOBIN)/kubectl ;\
-	}
-KUBECTL=$(GOBIN)/kubectl
-else
-KUBECTL=$(shell which kubectl)
-endif
+$(BINDIR)/kubectl: $(BINDIR)
+	curl -o $@ -LO "https://storage.googleapis.com/kubernetes-release/release/$(shell curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/$(OS)/$(ARCH)/kubectl"
+	chmod +x $@
+KUBECTL=$(BINDIR)/kubectl
