@@ -5,11 +5,16 @@ BINDIR ?= $(CURDIR)/bin
 ARCH=$(shell go env GOARCH)
 OS=$(shell go env GOOS)
 
+ARTIFACTS_DIR ?= _artifacts
+
+# The directory where to store E2E test logs
+E2E_LOG_DIR := ${ARTIFACTS_DIR}/logs/e2e
+
 all: google-cas-issuer
 
 .PHONY: clean
 clean: ## clean up created files
-	rm -rf $(BINDIR) \
+	rm -rf $(BINDIR) $(ARTIFACTS_DIR)
 
 # Run tests
 test: generate fmt vet manifests
@@ -28,6 +33,10 @@ e2e: $(BINDIR)/kind $(BINDIR)/kustomize $(BINDIR)/ginkgo $(BINDIR)/kubectl docke
 	timeout 5m bash -c 'until $(KUBECTL) --kubeconfig kubeconfig.yaml --timeout=120s wait --for=condition=Ready pods --all --namespace kube-system; do sleep 1; done'
 	timeout 5m bash -c 'until $(KUBECTL) --kubeconfig kubeconfig.yaml --timeout=120s wait --for=condition=Ready pods --all --namespace cert-manager; do sleep 1; done'
 	$(GINKGO) -nodes 1 test/e2e/ -- --kubeconfig $$(pwd)/kubeconfig.yaml --project jetstack-cas --location europe-west1 --capoolid issuer-e2e
+	rm -rf ${E2E_LOG_DIR} && mkdir -p ${E2E_LOG_DIR}
+	$(KIND) export logs --name casissuer-e2e ${E2E_LOG_DIR}
+	$(KUBECTL) --kubeconfig kubeconfig.yaml cluster-info dump --all-namespaces --output-directory ${E2E_LOG_DIR}/kubectl-cluster-info-dump --output yaml
+	$(KUBECTL) --kubeconfig kubeconfig.yaml describe cert-manager --all-namespaces > ${E2E_LOG_DIR}/cert-manager-resources.yaml
 	$(KIND) delete cluster --name casissuer-e2e
 
 # Build google-cas-issuer binary

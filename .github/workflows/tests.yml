@@ -38,3 +38,9 @@ jobs:
       run: make e2e
       env:
         TEST_GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
+
+    - uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-logs
+        path: _artifacts/logs/e2e
