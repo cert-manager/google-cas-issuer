@@ -13,19 +13,26 @@ jobs:
   run_tests:
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Install Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: '^1.19'
-      -
-        name: Checkout
-        uses: actions/checkout@v2
-      -
-        name: Run unit tests
-        run: make test
-      -
-        name: Run e2e tests
-        run: make e2e
-        env:
-          AGE_SECRET_KEY: ${{ secrets.AGE_SECRET_KEY }}
+    - name: Install Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: '^1.19'
+
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@v0'
+      with:
+        workload_identity_provider: 'projects/874174494201/locations/global/workloadIdentityPools/google-cas-issuer-e2e/providers/google-cas-issuer-e2e'
+        service_account: 'google-cas-issuer-e2e@jetstack-cas.iam.gserviceaccount.com'
+        create_credentials_file: true
+
+    - name: Run unit tests
+      run: make test
+
+    - name: Run e2e tests
+      run: make e2e
+      env:
+        TEST_GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}

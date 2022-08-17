@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/security/privateca/apiv1"
+	privateca "cloud.google.com/go/security/privateca/apiv1"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/google/uuid"
 	"google.golang.org/api/option"
