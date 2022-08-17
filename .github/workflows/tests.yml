@@ -11,10 +11,10 @@ on:
     - cron: "23 3 */3 * *"
 jobs:
   run_tests:
-    permissions:
-      contents: 'read'
-      id-token: 'write'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
     - name: Install Go
       uses: actions/setup-go@v3
@@ -24,13 +24,15 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v3
 
+    - name: Dump env
+      run: env
+
     - id: 'auth'
       name: 'Authenticate to Google Cloud'
       uses: 'google-github-actions/auth@v0'
       with:
         workload_identity_provider: 'projects/874174494201/locations/global/workloadIdentityPools/google-cas-issuer-e2e/providers/google-cas-issuer-e2e'
         service_account: 'google-cas-issuer-e2e@jetstack-cas.iam.gserviceaccount.com'
-        create_credentials_file: true
 
     - name: Run unit tests
       run: make test
