@@ -29,6 +29,7 @@ import (
 	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	cmversioned "github.com/jetstack/cert-manager/pkg/client/clientset/versioned"
+	. "github.com/onsi/ginkgo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -68,6 +69,7 @@ func (h *Helper) WaitForCertificateReady(ns, name string, timeout time.Duration)
 				Status: cmmeta.ConditionTrue,
 			})
 			if !isReady {
+				By(fmt.Sprintf("Certificate not ready: %v", certificate.Status))
 				return false, nil
 			}
 			return true, nil
