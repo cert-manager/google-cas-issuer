@@ -7,9 +7,6 @@ OS=$(shell go env GOOS)
 
 ARTIFACTS_DIR ?= _artifacts
 
-# The directory where to store E2E test logs
-E2E_LOG_DIR := ${ARTIFACTS_DIR}/logs/e2e
-
 all: google-cas-issuer
 
 .PHONY: clean
@@ -22,22 +19,7 @@ test: generate fmt vet manifests
 
 .PHONY: e2e
 e2e: $(BINDIR)/kind $(BINDIR)/kustomize $(BINDIR)/ginkgo $(BINDIR)/kubectl docker-build
-	$(KIND) version
-	$(KIND) create cluster --name casissuer-e2e
-	$(KIND) export kubeconfig --name casissuer-e2e --kubeconfig kubeconfig.yaml
-	$(KIND) load docker-image --name casissuer-e2e ${IMG}
-	$(KUBECTL) --kubeconfig kubeconfig.yaml apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.1/cert-manager.yaml
-	$(KUSTOMIZE) build config/crd | $(KUBECTL) --kubeconfig kubeconfig.yaml apply -f -
-	cd config/manager; $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | $(KUBECTL) --kubeconfig kubeconfig.yaml apply -f -
-	timeout 5m bash -c 'until $(KUBECTL) --kubeconfig kubeconfig.yaml --timeout=120s wait --for=condition=Ready pods --all --namespace kube-system; do sleep 1; done'
-	timeout 5m bash -c 'until $(KUBECTL) --kubeconfig kubeconfig.yaml --timeout=120s wait --for=condition=Ready pods --all --namespace cert-manager; do sleep 1; done'
-	$(GINKGO) -nodes 1 test/e2e/ -- --kubeconfig $$(pwd)/kubeconfig.yaml --project jetstack-cas --location europe-west1 --capoolid issuer-e2e
-	rm -rf ${E2E_LOG_DIR} && mkdir -p ${E2E_LOG_DIR}
-	$(KIND) export logs --name casissuer-e2e ${E2E_LOG_DIR}
-	$(KUBECTL) --kubeconfig kubeconfig.yaml cluster-info dump --all-namespaces --output-directory ${E2E_LOG_DIR}/kubectl-cluster-info-dump --output yaml
-	$(KUBECTL) --kubeconfig kubeconfig.yaml describe cert-manager --all-namespaces > ${E2E_LOG_DIR}/cert-manager-resources.yaml
-	$(KIND) delete cluster --name casissuer-e2e
+	./hack/ci/run-e2e.sh
 
 # Build google-cas-issuer binary
 google-cas-issuer: generate fmt vet
