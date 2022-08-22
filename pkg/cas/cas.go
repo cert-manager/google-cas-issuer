@@ -131,7 +131,7 @@ func (c *casSigner) createCasClient() (*privateca.CertificateAuthorityClient, er
 		}
 		c, err := privateca.NewCertificateAuthorityClient(c.ctx, option.WithCredentialsJSON(credentials))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to build certificate authority client: %w", err)
 		}
 		casClient = c
 	} else {

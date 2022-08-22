@@ -19,8 +19,10 @@ package certificaterequest
 import (
 	"context"
 	"errors"
-	"k8s.io/client-go/tools/record"
+	"fmt"
 	"time"
+
+	"k8s.io/client-go/tools/record"
 
 	"github.com/go-logr/logr"
 	cmutil "github.com/jetstack/cert-manager/pkg/api/util"
@@ -228,7 +230,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Sign certificate
 	cert, ca, err := signer.Sign(certificateRequest.Spec.Request, certificateRequest.Spec.Duration.Duration)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("failed to sign certificate request: %w", err)
 	}
 	certificateRequest.Status.CA = ca
 	certificateRequest.Status.Certificate = cert
