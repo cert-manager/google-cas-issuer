@@ -9,8 +9,8 @@ E2E_LOG_DIR="${E2E_LOG_DIR:-${REPO_ROOT}/_artifacts/e2e/logs}"
 
 export PATH="${BINDIR}:${PATH}"
 
-
-KUBECONFIG=${BINDIR}/kubeconfig.yaml
+cd $REPO_ROOT
+KUBECONFIG=$(pwd)/kubeconfig.yaml
 
 function export_logs {
   echo "Exporting e2e test logs"
@@ -18,8 +18,6 @@ function export_logs {
   mkdir -p ${E2E_LOG_DIR}
   kind export logs --name casissuer-e2e ${E2E_LOG_DIR}
 }
-
-cd $REPO_ROOT
 
 kind version
 kind create cluster --name casissuer-e2e
