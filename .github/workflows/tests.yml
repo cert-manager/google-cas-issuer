@@ -43,4 +43,4 @@ jobs:
       if: always()
       with:
         name: e2e-logs
-        path: _artifacts/logs/e2e
+        path: _artifacts/e2e/logs
