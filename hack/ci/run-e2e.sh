@@ -23,7 +23,7 @@ kind version
 kind create cluster --name casissuer-e2e
 kind export kubeconfig --name casissuer-e2e --kubeconfig $KUBECONFIG
 kind load docker-image --name casissuer-e2e $IMG
-kubectl --kubeconfig $KUBECONFIG apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.1/cert-manager.yaml
+kubectl --kubeconfig $KUBECONFIG apply -f https://github.com/jetstack/cert-manager/releases/download/v1.9.1/cert-manager.yaml
 kustomize build config/crd | kubectl --kubeconfig $KUBECONFIG apply -f -
 cd config/manager && kustomize edit set image controller=${IMG} && cd -
 kustomize build config/default | kubectl --kubeconfig $KUBECONFIG apply -f -
@@ -32,5 +32,4 @@ timeout 5m bash -c "until kubectl --kubeconfig $KUBECONFIG --timeout=120s wait -
 trap export_logs EXIT
 ginkgo -nodes 1 test/e2e/ -- --kubeconfig $KUBECONFIG --project jetstack-cas --location europe-west1 --capoolid issuer-e2e
 kubectl --kubeconfig $KUBECONFIG cluster-info dump --all-namespaces --output-directory ${E2E_LOG_DIR}/kubectl-cluster-info-dump --output yaml
-kubectl --kubeconfig $KUBECONFIG describe cert-manager --all-namespaces > ${E2E_LOG_DIR}/cert-manager-resources.yaml
 kind delete cluster --name casissuer-e2e
