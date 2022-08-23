@@ -31,16 +31,6 @@ jobs:
         workload_identity_provider: 'projects/874174494201/locations/global/workloadIdentityPools/google-cas-issuer-e2e/providers/google-cas-issuer-e2e'
         service_account: 'google-cas-issuer-e2e@jetstack-cas.iam.gserviceaccount.com'
 
-    # Install gcloud, `setup-gcloud` automatically picks up authentication from `auth`.
-    - name: 'Set up Cloud SDK'
-      uses: 'google-github-actions/setup-gcloud@v0'
-
-    # Now you can run gcloud commands authenticated as the impersonated service account.
-    - id: 'gcloud'
-      name: 'gcloud'
-      run: |-
-        gcloud privateca roots list --project jetstack-cas --location europe-west1 --pool issuer-e2e
-
     - name: Run unit tests
       run: make test
 
