@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"flag"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,6 +20,10 @@ var (
 	cfg           = config.GetConfig()
 	kubeClientSet kubernetes.Interface
 )
+
+func init() {
+	cfg.AddFlags(flag.CommandLine)
+}
 
 var _ = SynchronizedBeforeSuite(func() []byte {
 	var err error

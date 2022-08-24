@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"flag"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,8 +19,6 @@ func init() {
 }
 
 func TestE2E(t *testing.T) {
-	flag.Parse()
-
 	gomega.RegisterFailHandler(ginkgo.Fail)
 
 	junitPath := "../../_artifacts"
