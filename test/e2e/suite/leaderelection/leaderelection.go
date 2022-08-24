@@ -25,7 +25,9 @@ var _ = framework.CasesDescribe("leader election", func() {
 		By("Waiting for all pods to be ready")
 		err := f.Helper().WaitForPodsReady(f.Config().Namespace, 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
-		_, err = f.KubeClientSet.CoordinationV1().Leases(f.Config().Namespace).Get(context.TODO(), "cm-google-cas-issuer", metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() bool {
+			_, err = f.KubeClientSet.CoordinationV1().Leases(f.Config().Namespace).Get(context.TODO(), "cm-google-cas-issuer", metav1.GetOptions{})
+			return err == nil
+		}, "10s").Should(BeTrue())
 	})
 })
