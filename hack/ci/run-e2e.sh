@@ -16,6 +16,7 @@ function export_logs_delete {
   echo "Exporting e2e test logs"
   rm -rf ${E2E_LOG_DIR}
   mkdir -p ${E2E_LOG_DIR}
+  kubectl --kubeconfig $KUBECONFIG cluster-info dump --all-namespaces --output-directory ${E2E_LOG_DIR}/kubectl-cluster-info-dump --output yaml
   kind export logs --name casissuer-e2e ${E2E_LOG_DIR}
   kind delete cluster --name casissuer-e2e
 }
@@ -32,4 +33,3 @@ timeout 5m bash -c "until kubectl --kubeconfig $KUBECONFIG --timeout=120s wait -
 timeout 5m bash -c "until kubectl --kubeconfig $KUBECONFIG --timeout=120s wait --for=condition=Ready pods --all --namespace cert-manager; do sleep 1; done"
 trap export_logs_delete EXIT
 ginkgo -nodes 1 test/e2e/ -- --kubeconfig $KUBECONFIG --project jetstack-cas --location europe-west1 --capoolid issuer-e2e
-kubectl --kubeconfig $KUBECONFIG cluster-info dump --all-namespaces --output-directory ${E2E_LOG_DIR}/kubectl-cluster-info-dump --output yaml
