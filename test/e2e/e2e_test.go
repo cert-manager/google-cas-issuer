@@ -7,26 +7,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/ginkgo"
-	ginkgoconfig "github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/reporters"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/reporters"
 	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/jetstack/google-cas-issuer/test/e2e/framework/config"
 	_ "github.com/jetstack/google-cas-issuer/test/e2e/suite"
 )
 
 func init() {
-	config.GetConfig().AddFlags(flag.CommandLine)
-
-	// Turn on verbose by default to get spec names
-	ginkgoconfig.DefaultReporterConfig.Verbose = true
-	// Turn on EmitSpecProgress to get spec progress (especially on interrupt)
-	ginkgoconfig.GinkgoConfig.EmitSpecProgress = true
-	// Randomize specs as well as suites
-	ginkgoconfig.GinkgoConfig.RandomizeAllSpecs = true
-
 	wait.ForeverTestTimeout = time.Second * 60
 }
 
