@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.5.0
+    controller-gen.kubebuilder.io/version: v0.9.2
   creationTimestamp: null
   name: googlecasclusterissuers.cas-issuer.jetstack.io
 spec:
@@ -29,13 +28,18 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: GoogleCASClusterIssuer is the Schema for the googlecasclusterissuers API
+        description: GoogleCASClusterIssuer is the Schema for the googlecasclusterissuers
+          API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -43,19 +47,26 @@ spec:
             description: GoogleCASIssuerSpec defines the desired state of GoogleCASIssuer
             properties:
               caPoolId:
-                description: CaPoolId is the id of the CA pool to issue certificates from
+                description: CaPoolId is the id of the CA pool to issue certificates
+                  from
                 type: string
               certificateAuthorityId:
-                description: CertificateAuthorityId is specific certificate authority to use to sign. Omit in order to load balance across all CAs in the pool
+                description: CertificateAuthorityId is specific certificate authority
+                  to use to sign. Omit in order to load balance across all CAs in
+                  the pool
                 type: string
               credentials:
-                description: Credentials is a reference to a Kubernetes Secret Key that contains Google Service Account Credentials
+                description: Credentials is a reference to a Kubernetes Secret Key
+                  that contains Google Service Account Credentials
                 properties:
                   key:
-                    description: The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be defaulted, in others it may be required.
+                    description: The key of the entry in the Secret resource's `data`
+                      field to be used. Some instances of this field may be defaulted,
+                      in others it may be required.
                     type: string
                   name:
-                    description: 'Name of the resource being referred to. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                    description: 'Name of the resource being referred to. More info:
+                      https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                     type: string
                 required:
                 - name
@@ -72,17 +83,21 @@ spec:
             properties:
               conditions:
                 items:
-                  description: IssuerCondition contains condition information for a CAS Issuer.
+                  description: IssuerCondition contains condition information for
+                    a CAS Issuer.
                   properties:
                     lastTransitionTime:
-                      description: LastTransitionTime is the timestamp corresponding to the last status change of this condition.
+                      description: LastTransitionTime is the timestamp corresponding
+                        to the last status change of this condition.
                       format: date-time
                       type: string
                     message:
-                      description: Message is a human readable description of the details of the last transition, complementing reason.
+                      description: Message is a human readable description of the
+                        details of the last transition, complementing reason.
                       type: string
                     reason:
-                      description: Reason is a brief machine readable explanation for the condition's last transition.
+                      description: Reason is a brief machine readable explanation
+                        for the condition's last transition.
                       type: string
                     status:
                       allOf:
@@ -94,7 +109,8 @@ spec:
                         - "True"
                         - "False"
                         - Unknown
-                      description: Status of the condition, one of ('True', 'False', 'Unknown').
+                      description: Status of the condition, one of ('True', 'False',
+                        'Unknown').
                       type: string
                     type:
                       description: Type of the condition, currently ('Ready').
@@ -112,9 +128,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

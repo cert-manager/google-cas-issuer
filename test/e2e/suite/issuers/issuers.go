@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
-	"io/ioutil"
 	"os"
 	"text/template"
 	"time"
 
-	"filippo.io/age"
 	certmanagerv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	cmmetav1 "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	. "github.com/onsi/ginkgo"
@@ -52,9 +50,6 @@ spec:
     key: "{{ .SecretKey }}"`
 )
 
-//go:embed google-sa
-var googleSa []byte
-
 type templateConfig struct {
 	Name       string
 	Namespace  string
@@ -69,28 +64,20 @@ var _ = framework.CasesDescribe("issuers", func() {
 	f := framework.NewDefaultFramework("issuer")
 	cfg := config.GetConfig()
 	It("Tests Issuer functionality", func() {
-		By("Decrypting issuer secret")
-		encSecret := bytes.NewReader(googleSa)
-		identity, err := age.ParseX25519Identity(os.Getenv("AGE_SECRET_KEY"))
+		By("Creating Google Cloud Credentials Secret")
+		data, err := os.ReadFile(os.Getenv("TEST_GOOGLE_APPLICATION_CREDENTIALS"))
 		Expect(err).NotTo(HaveOccurred())
-		decSecret, err := age.Decrypt(encSecret, identity)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Creating a secret for the issuer")
-		secretName := "casissuer-" + util.RandomString(5)
-		secretData := make(map[string][]byte)
-		data, err := ioutil.ReadAll(decSecret)
-		Expect(err).NotTo(HaveOccurred())
-		secretData["google.json"] = data
-		_, err = f.KubeClientSet.CoreV1().Secrets(cfg.Namespace).Create(
+		secret, err := f.KubeClientSet.CoreV1().Secrets(cfg.Namespace).Create(
 			context.TODO(),
 			&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      secretName,
-					Namespace: cfg.Namespace,
+					GenerateName: "google-credentials-",
+					Namespace:    cfg.Namespace,
 				},
 				Type: corev1.SecretTypeOpaque,
-				Data: secretData,
+				Data: map[string][]byte{
+					"google.json": data,
+				},
 			},
 			metav1.CreateOptions{},
 		)
@@ -103,7 +90,7 @@ var _ = framework.CasesDescribe("issuers", func() {
 			Project:    cfg.Project,
 			Location:   cfg.Location,
 			Pool:       cfg.CaPoolId,
-			SecretName: secretName,
+			SecretName: secret.Name,
 			SecretKey:  "google.json",
 		}
 		buf := &bytes.Buffer{}
@@ -160,28 +147,20 @@ var _ = framework.CasesDescribe("issuers", func() {
 	})
 
 	It("Tests ClusterIssuer functionality", func() {
-		By("Decrypting issuer secret")
-		encSecret := bytes.NewReader(googleSa)
-		identity, err := age.ParseX25519Identity(os.Getenv("AGE_SECRET_KEY"))
+		By("Creating Google Cloud Credentials Secret")
+		data, err := os.ReadFile(os.Getenv("TEST_GOOGLE_APPLICATION_CREDENTIALS"))
 		Expect(err).NotTo(HaveOccurred())
-		decSecret, err := age.Decrypt(encSecret, identity)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Creating a secret for the issuer")
-		secretName := "casissuer-" + util.RandomString(5)
-		secretData := make(map[string][]byte)
-		data, err := ioutil.ReadAll(decSecret)
-		Expect(err).NotTo(HaveOccurred())
-		secretData["google.json"] = data
-		_, err = f.KubeClientSet.CoreV1().Secrets("cert-manager").Create(
+		secret, err := f.KubeClientSet.CoreV1().Secrets("cert-manager").Create(
 			context.TODO(),
 			&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      secretName,
-					Namespace: "cert-manager",
+					GenerateName: "google-credentials-",
+					Namespace:    "cert-manager",
 				},
 				Type: corev1.SecretTypeOpaque,
-				Data: secretData,
+				Data: map[string][]byte{
+					"google.json": data,
+				},
 			},
 			metav1.CreateOptions{},
 		)
@@ -193,7 +172,7 @@ var _ = framework.CasesDescribe("issuers", func() {
 			Project:    cfg.Project,
 			Location:   cfg.Location,
 			Pool:       cfg.CaPoolId,
-			SecretName: secretName,
+			SecretName: secret.Name,
 			SecretKey:  "google.json",
 		}
 		buf := &bytes.Buffer{}

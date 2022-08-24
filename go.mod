@@ -4,7 +4,6 @@ go 1.16
 
 require (
 	cloud.google.com/go/security v0.1.0
-	filippo.io/age v1.0.0-rc.3
 	github.com/go-logr/logr v0.4.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/uuid v1.3.0

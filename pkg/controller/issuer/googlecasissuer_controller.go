@@ -19,6 +19,8 @@ package issuer
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/jetstack/google-cas-issuer/pkg/cas"
 	"github.com/spf13/viper"
@@ -27,7 +29,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 
 	issuersv1beta1 "github.com/jetstack/google-cas-issuer/api/v1beta1"
 )

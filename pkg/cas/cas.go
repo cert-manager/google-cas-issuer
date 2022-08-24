@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/security/privateca/apiv1"
+	privateca "cloud.google.com/go/security/privateca/apiv1"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/google/uuid"
 	"google.golang.org/api/option"
@@ -131,7 +131,7 @@ func (c *casSigner) createCasClient() (*privateca.CertificateAuthorityClient, er
 		}
 		c, err := privateca.NewCertificateAuthorityClient(c.ctx, option.WithCredentialsJSON(credentials))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to build certificate authority client: %w", err)
 		}
 		casClient = c
 	} else {
