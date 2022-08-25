@@ -82,7 +82,7 @@ $(BINDIR)/kind: $(BINDIR)
 KIND=$(BINDIR)/kind
 
 $(BINDIR)/ginkgo: $(BINDIR)
-	cd hack/tools && go build -o $@ github.com/onsi/ginkgo/ginkgo
+	cd hack/tools && go build -o $@ github.com/onsi/ginkgo/v2/ginkgo
 GINKGO=$(BINDIR)/ginkgo
 
 # find or download kubectl

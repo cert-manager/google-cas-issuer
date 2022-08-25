@@ -17,7 +17,7 @@ limitations under the License.
 package cmd
 
 import (
-	cmapi "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
