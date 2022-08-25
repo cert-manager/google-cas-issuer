@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cert-manager-google-cas-issuer.name" . }}
+  labels:
+{{ include "cert-manager-google-cas-issuer.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "cert-manager-google-cas-issuer.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "cert-manager-google-cas-issuer.name" . }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "cert-manager-google-cas-issuer.name" . }}
+      containers:
+      - name: {{ include "cert-manager-google-cas-issuer.name" . }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.app.metrics.port }}
+        command: ["/google-cas-issuer"]
+
+        args:
+          - --enable-leader-election
+          - --zap-devel={{.Values.app.zapDevel}}
+
+        resources:
+          {{- toYaml .Values.resources | indent 12 }}
