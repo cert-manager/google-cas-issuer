@@ -34,7 +34,7 @@ app:
     #   namespace: cert-manager
     subjects:
     - kind: ServiceAccount
-      name: cert-manager-google-cas-issuer
+      name: cert-manager
       namespace: cert-manager
 
   # metrics controls exposing google-cas-issuer metrics.
