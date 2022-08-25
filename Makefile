@@ -7,6 +7,7 @@ OS=$(shell go env GOOS)
 
 ARTIFACTS_DIR ?= _artifacts
 HELM_VERSION ?= 3.9.4
+CRDS_DIR=$(CURDIR)/deploy/charts/google-cas-issuer/templates/crds/
 
 all: google-cas-issuer
 
@@ -30,9 +31,9 @@ google-cas-issuer: generate fmt vet
 run: generate fmt vet manifests
 	go run ./main.go --zap-devel=true
 
-# Generate manifests e.g. CRD, RBAC etc.
+# Generate CRDs
 manifests: depend
-	$(CONTROLLER_GEN) crd rbac:roleName=google-cas-issuer-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) crd schemapatch:manifests=$(CRDS_DIR) output:dir=$(CRDS_DIR) paths=./api/...
 
 # Run go fmt against code
 fmt:
