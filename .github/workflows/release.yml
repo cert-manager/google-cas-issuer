@@ -56,28 +56,18 @@ jobs:
         name: install controller-gen
         run: go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0
       -
-        name: install kustomize
-        working-directory: /
-        env:
-          GO111MODULE: on
-        run: go install sigs.k8s.io/kustomize/kustomize/v3@v4.5.7
-      -
         name: checkout repository
         uses: actions/checkout@v2
       -
-        name: generate manifests
-        run: make manifests
+        name: install helm
+        shell: bash
+        run: make depend
       -
         name: generate deployment manifests
         id: deploy
         shell: bash
-        env:
-          IMG: quay.io/jetstack/cert-manager-google-cas-issuer
         run: |
-          pushd config/manager
-          kustomize edit set image controller=$IMG:$(echo ${GITHUB_REF##*/} | cut -c2-)
-          popd
-          kustomize build config/default | tee google-cas-issuer-${GITHUB_REF##*/}.yaml
+          helm template deploy/charts/google-cas-issuer --set image.tag=${GITHUB_REF##*/} | tee google-cas-issuer-${GITHUB_REF##*/}.yaml
       -
         name: create release
         id: create_release
