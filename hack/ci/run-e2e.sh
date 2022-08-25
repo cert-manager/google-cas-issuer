@@ -32,4 +32,4 @@ kustomize build config/default | kubectl --kubeconfig $KUBECONFIG apply -f -
 timeout 5m bash -c "until kubectl --kubeconfig $KUBECONFIG --timeout=120s wait --for=condition=Ready pods --all --namespace kube-system; do sleep 1; done"
 timeout 5m bash -c "until kubectl --kubeconfig $KUBECONFIG --timeout=120s wait --for=condition=Ready pods --all --namespace cert-manager; do sleep 1; done"
 trap export_logs_delete EXIT
-ginkgo test/e2e/ -- --kubeconfig $KUBECONFIG --project jetstack-cas --location europe-west1 --capoolid issuer-e2e
+ginkgo -nodes 1 test/e2e/ -- --kubeconfig $KUBECONFIG --project jetstack-cas --location europe-west1 --capoolid issuer-e2e
