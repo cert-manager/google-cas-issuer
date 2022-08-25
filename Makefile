@@ -55,7 +55,7 @@ docker-push:
 	docker push ${IMG}
 
 .PHONY: depend
-depend: $(BINDIR) $(BINDIR)/kind $(BINDIR)/helm $(BINDIR)/kubectl $(BINDIR)/ginkgo
+depend: $(BINDIR) $(BINDIR)/kind $(BINDIR)/helm $(BINDIR)/kubectl $(BINDIR)/ginkgo $(BINDIR)/controller-gen
 
 $(BINDIR):
 	mkdir -p ./bin
