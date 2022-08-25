@@ -13,8 +13,8 @@ image:
 imagePullSecrets: []
 
 app:
-  # -- Verbosity of google-cas-issuer logging.
-  zapDevel: true # true|false
+    # -- Verbosity of google-cas-issuer logging.
+  logLevel: 1 # 1-5
 
   # -- Handle RBAC permissions for approving Google CAS issuer
   # CertificateRequests.

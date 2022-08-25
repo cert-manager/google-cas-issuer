@@ -17,13 +17,16 @@ limitations under the License.
 package cmd
 
 import (
+	"flag"
+
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/klogr"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	issuersv1beta1 "github.com/jetstack/google-cas-issuer/api/v1beta1"
 	"github.com/jetstack/google-cas-issuer/pkg/controller/certificaterequest"
@@ -49,17 +52,16 @@ func init() {
 	rootCmd.PersistentFlags().String("cluster-resource-namespace", "cert-manager", "The namespace for secrets in which cluster-scoped resources are found.")
 	rootCmd.PersistentFlags().Bool("disable-approval-check", false, "Don't check whether a CertificateRequest is approved before signing. For compatibility with cert-manager <v1.3.0.")
 
-	// Zap flags
-	rootCmd.PersistentFlags().Bool("zap-devel", false, "Zap Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn).")
+	rootCmd.PersistentFlags().StringP("log-level", "v", "1", "Log level (1-5).")
 
 	viper.BindPFlags(rootCmd.PersistentFlags())
 }
 
 func root() error {
-	// Initialise Logging
-	opts := &zap.Options{}
-	opts.Development = viper.GetBool("zap-devel")
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(opts)))
+	klog.InitFlags(nil)
+	log := klogr.New()
+	flag.Set("v", viper.GetString("log-level"))
+	ctrl.SetLogger(log)
 
 	// Add all APIs to scheme
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {

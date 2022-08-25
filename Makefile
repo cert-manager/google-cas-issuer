@@ -29,7 +29,7 @@ google-cas-issuer: generate fmt vet
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
-	go run ./main.go --zap-devel=true
+	go run ./main.go --log-level=5
 
 # Generate CRDs
 manifests: depend
