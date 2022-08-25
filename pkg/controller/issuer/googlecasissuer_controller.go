@@ -30,7 +30,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	issuersv1beta1 "github.com/jetstack/google-cas-issuer/api/v1beta1"
+	issuersv1 "github.com/jetstack/google-cas-issuer/api/v1"
 )
 
 const (
@@ -82,7 +82,7 @@ func (r *GoogleCASIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// Always attempt to update the Ready condition
 	defer func() {
 		if err != nil {
-			setReadyCondition(status, issuersv1beta1.ConditionFalse, "issuer failed to reconcile", err.Error())
+			setReadyCondition(status, issuersv1.ConditionFalse, "issuer failed to reconcile", err.Error())
 		}
 		// If the Issuer is deleted mid-reconcile, ignore it
 		if updateErr := client.IgnoreNotFound(r.Status().Update(ctx, issuer)); updateErr != nil {
@@ -100,14 +100,14 @@ func (r *GoogleCASIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	if err != nil {
 		log.Info("Issuer is misconfigured", "info", err.Error())
-		setReadyCondition(status, issuersv1beta1.ConditionFalse, reasonIssuerMisconfigured, err.Error())
+		setReadyCondition(status, issuersv1.ConditionFalse, reasonIssuerMisconfigured, err.Error())
 		r.Recorder.Event(issuer, eventTypeWarning, reasonIssuerMisconfigured, err.Error())
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	log.Info("reconciled issuer", "kind", issuer.GetObjectKind())
 	msg := "Successfully constructed CAS client"
-	setReadyCondition(status, issuersv1beta1.ConditionTrue, reasonCASClientOK, msg)
+	setReadyCondition(status, issuersv1.ConditionTrue, reasonCASClientOK, msg)
 	r.Recorder.Event(issuer, eventTypeNormal, reasonCASClientOK, msg)
 	return ctrl.Result{}, nil
 }
@@ -124,41 +124,41 @@ func (r *GoogleCASIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // convert a k8s.io/apimachinery/pkg/runtime.Object into a sigs.k8s.io/controller-runtime/pkg/client.Object
 func (r *GoogleCASIssuerReconciler) getIssuer() (client.Object, error) {
-	issuer, err := r.Scheme.New(issuersv1beta1.GroupVersion.WithKind(r.Kind))
+	issuer, err := r.Scheme.New(issuersv1.GroupVersion.WithKind(r.Kind))
 	if err != nil {
 		return nil, err
 	}
 	switch t := issuer.(type) {
-	case *issuersv1beta1.GoogleCASIssuer:
+	case *issuersv1.GoogleCASIssuer:
 		return t, nil
-	case *issuersv1beta1.GoogleCASClusterIssuer:
+	case *issuersv1.GoogleCASClusterIssuer:
 		return t, nil
 	default:
 		return nil, fmt.Errorf("unsupported kind %s", r.Kind)
 	}
 }
 
-func getIssuerSpecStatus(object client.Object) (*issuersv1beta1.GoogleCASIssuerSpec, *issuersv1beta1.GoogleCASIssuerStatus, error) {
+func getIssuerSpecStatus(object client.Object) (*issuersv1.GoogleCASIssuerSpec, *issuersv1.GoogleCASIssuerStatus, error) {
 	switch t := object.(type) {
-	case *issuersv1beta1.GoogleCASIssuer:
+	case *issuersv1.GoogleCASIssuer:
 		return &t.Spec, &t.Status, nil
-	case *issuersv1beta1.GoogleCASClusterIssuer:
+	case *issuersv1.GoogleCASClusterIssuer:
 		return &t.Spec, &t.Status, nil
 	default:
 		return nil, nil, fmt.Errorf("unexpected type %T", t)
 	}
 }
 
-func setReadyCondition(status *issuersv1beta1.GoogleCASIssuerStatus, conditionStatus issuersv1beta1.ConditionStatus, reason, message string) {
-	var ready *issuersv1beta1.GoogleCASIssuerCondition
+func setReadyCondition(status *issuersv1.GoogleCASIssuerStatus, conditionStatus issuersv1.ConditionStatus, reason, message string) {
+	var ready *issuersv1.GoogleCASIssuerCondition
 	for _, c := range status.Conditions {
-		if c.Type == issuersv1beta1.IssuerConditionReady {
+		if c.Type == issuersv1.IssuerConditionReady {
 			ready = &c
 			break
 		}
 	}
 	if ready == nil {
-		ready = &issuersv1beta1.GoogleCASIssuerCondition{Type: issuersv1beta1.IssuerConditionReady}
+		ready = &issuersv1.GoogleCASIssuerCondition{Type: issuersv1.IssuerConditionReady}
 	}
 	if ready.Status != conditionStatus {
 		ready.Status = conditionStatus
@@ -169,7 +169,7 @@ func setReadyCondition(status *issuersv1beta1.GoogleCASIssuerStatus, conditionSt
 	ready.Message = message
 
 	for i, c := range status.Conditions {
-		if c.Type == issuersv1beta1.IssuerConditionReady {
+		if c.Type == issuersv1.IssuerConditionReady {
 			status.Conditions[i] = *ready
 			return
 		}

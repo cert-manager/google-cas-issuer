@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	issuerYAML string = `apiVersion: cas-issuer.jetstack.io/v1beta1
+	issuerYAML string = `apiVersion: cas-issuer.jetstack.io/v1
 kind: GoogleCASIssuer
 metadata:
   name: {{ .Name }}
@@ -37,7 +37,7 @@ spec:
     key: "{{ .SecretKey }}"
 `
 
-	clusterIssuerYaml string = `apiVersion: cas-issuer.jetstack.io/v1beta1
+	clusterIssuerYaml string = `apiVersion: cas-issuer.jetstack.io/v1
 kind: GoogleCASClusterIssuer
 metadata:
   name: {{ .Name }}

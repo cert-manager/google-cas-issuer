@@ -36,7 +36,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	casapi "github.com/jetstack/google-cas-issuer/api/v1beta1"
+	casapi "github.com/jetstack/google-cas-issuer/api/v1"
 )
 
 const (

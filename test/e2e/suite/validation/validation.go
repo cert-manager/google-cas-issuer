@@ -28,7 +28,7 @@ var _ = framework.CasesDescribe("validation", func() {
 
 	It("Has the google-cas-issuer CRDs installed", func() {
 		By("using the dynamic client to create a google-cas-issuer")
-		casYAML := `apiVersion: cas-issuer.jetstack.io/v1beta1
+		casYAML := `apiVersion: cas-issuer.jetstack.io/v1
 kind: GoogleCASIssuer
 metadata:
   name: googlecasissuer-sample

@@ -35,7 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/jetstack/google-cas-issuer/api/v1beta1"
+	"github.com/jetstack/google-cas-issuer/api/v1"
 )
 
 // A Signer is an abstraction of a certificate authority
@@ -48,7 +48,7 @@ type casSigner struct {
 	// parent is the Google cloud project ID in the format "projects/*/locations/*"
 	parent string
 	// spec is a reference to the issuer Spec
-	spec *v1beta1.GoogleCASIssuerSpec
+	spec *v1.GoogleCASIssuerSpec
 	// namespace is the namespace to look for secrets in
 	namespace string
 
@@ -85,7 +85,7 @@ func (c *casSigner) Sign(csr []byte, expiry time.Duration) (cert []byte, ca []by
 	return extractCertAndCA(createCertResp)
 }
 
-func NewSigner(ctx context.Context, spec *v1beta1.GoogleCASIssuerSpec, client client.Client, namespace string) (Signer, error) {
+func NewSigner(ctx context.Context, spec *v1.GoogleCASIssuerSpec, client client.Client, namespace string) (Signer, error) {
 	c, err := newSignerNoSelftest(ctx, spec, client, namespace)
 	if err != nil {
 		return c, err
@@ -99,7 +99,7 @@ func NewSigner(ctx context.Context, spec *v1beta1.GoogleCASIssuerSpec, client cl
 }
 
 // newSignerNoSelftest creates a Signer without doing a self-check, useful for tests
-func newSignerNoSelftest(ctx context.Context, spec *v1beta1.GoogleCASIssuerSpec, client client.Client, namespace string) (*casSigner, error) {
+func newSignerNoSelftest(ctx context.Context, spec *v1.GoogleCASIssuerSpec, client client.Client, namespace string) (*casSigner, error) {
 	if spec.CaPoolId == "" {
 		return nil, fmt.Errorf("must specify a CaPoolId")
 	}

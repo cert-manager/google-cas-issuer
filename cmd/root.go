@@ -28,7 +28,7 @@ import (
 	"k8s.io/klog/v2/klogr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	issuersv1beta1 "github.com/jetstack/google-cas-issuer/api/v1beta1"
+	issuersv1 "github.com/jetstack/google-cas-issuer/api/v1"
 	"github.com/jetstack/google-cas-issuer/pkg/controller/certificaterequest"
 	"github.com/jetstack/google-cas-issuer/pkg/controller/issuer"
 )
@@ -72,7 +72,7 @@ func root() error {
 		setupLog.Error(err, "couldn't add cert-manager scheme")
 		return err
 	}
-	if err := issuersv1beta1.AddToScheme(scheme); err != nil {
+	if err := issuersv1.AddToScheme(scheme); err != nil {
 		setupLog.Error(err, "couldn't add cert-manager scheme")
 		return err
 	}

@@ -5,28 +5,28 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	issuersv1beta1 "github.com/jetstack/google-cas-issuer/api/v1beta1"
+	issuersv1 "github.com/jetstack/google-cas-issuer/api/v1"
 )
 
 func TestSetReadyCondition(t *testing.T) {
 	tests := []struct {
 		name                 string
-		inputStatus          *issuersv1beta1.GoogleCASIssuerStatus
-		inputConditionStatus issuersv1beta1.ConditionStatus
+		inputStatus          *issuersv1.GoogleCASIssuerStatus
+		inputConditionStatus issuersv1.ConditionStatus
 		inputReason          string
 		inputMessage         string
-		expectedStatus       *issuersv1beta1.GoogleCASIssuerStatus
+		expectedStatus       *issuersv1.GoogleCASIssuerStatus
 	}{
 		{
 			name:                 "Status with nil condition should be set",
-			inputStatus:          &issuersv1beta1.GoogleCASIssuerStatus{Conditions: nil},
-			inputConditionStatus: issuersv1beta1.ConditionTrue,
+			inputStatus:          &issuersv1.GoogleCASIssuerStatus{Conditions: nil},
+			inputConditionStatus: issuersv1.ConditionTrue,
 			inputReason:          "Test Ready Reason",
 			inputMessage:         "Test Ready Message",
-			expectedStatus: &issuersv1beta1.GoogleCASIssuerStatus{
-				Conditions: []issuersv1beta1.GoogleCASIssuerCondition{{
-					Type:               issuersv1beta1.IssuerConditionReady,
-					Status:             issuersv1beta1.ConditionTrue,
+			expectedStatus: &issuersv1.GoogleCASIssuerStatus{
+				Conditions: []issuersv1.GoogleCASIssuerCondition{{
+					Type:               issuersv1.IssuerConditionReady,
+					Status:             issuersv1.ConditionTrue,
 					LastTransitionTime: nil,
 					Reason:             "Test Ready Reason",
 					Message:            "Test Ready Message",
@@ -35,24 +35,24 @@ func TestSetReadyCondition(t *testing.T) {
 		},
 		{
 			name: "Status can transition from Ready to Not Ready",
-			inputStatus: &issuersv1beta1.GoogleCASIssuerStatus{
-				Conditions: []issuersv1beta1.GoogleCASIssuerCondition{
+			inputStatus: &issuersv1.GoogleCASIssuerStatus{
+				Conditions: []issuersv1.GoogleCASIssuerCondition{
 					{
-						Type:               issuersv1beta1.IssuerConditionReady,
-						Status:             issuersv1beta1.ConditionTrue,
+						Type:               issuersv1.IssuerConditionReady,
+						Status:             issuersv1.ConditionTrue,
 						LastTransitionTime: nil,
 						Reason:             "I was Ready before",
 						Message:            "Test Ready Message",
 					},
 				},
 			},
-			inputConditionStatus: issuersv1beta1.ConditionFalse,
+			inputConditionStatus: issuersv1.ConditionFalse,
 			inputReason:          "I'm not ready now reason",
 			inputMessage:         "I'm not ready now message",
-			expectedStatus: &issuersv1beta1.GoogleCASIssuerStatus{
-				Conditions: []issuersv1beta1.GoogleCASIssuerCondition{{
-					Type:               issuersv1beta1.IssuerConditionReady,
-					Status:             issuersv1beta1.ConditionFalse,
+			expectedStatus: &issuersv1.GoogleCASIssuerStatus{
+				Conditions: []issuersv1.GoogleCASIssuerCondition{{
+					Type:               issuersv1.IssuerConditionReady,
+					Status:             issuersv1.ConditionFalse,
 					LastTransitionTime: nil,
 					Reason:             "I'm not ready now reason",
 					Message:            "I'm not ready now message",
@@ -61,24 +61,24 @@ func TestSetReadyCondition(t *testing.T) {
 		},
 		{
 			name: "Status can transition from Not Ready to Ready",
-			inputStatus: &issuersv1beta1.GoogleCASIssuerStatus{
-				Conditions: []issuersv1beta1.GoogleCASIssuerCondition{
+			inputStatus: &issuersv1.GoogleCASIssuerStatus{
+				Conditions: []issuersv1.GoogleCASIssuerCondition{
 					{
-						Type:               issuersv1beta1.IssuerConditionReady,
-						Status:             issuersv1beta1.ConditionFalse,
+						Type:               issuersv1.IssuerConditionReady,
+						Status:             issuersv1.ConditionFalse,
 						LastTransitionTime: nil,
 						Reason:             "I was not ready before",
 						Message:            "Test Ready Message",
 					},
 				},
 			},
-			inputConditionStatus: issuersv1beta1.ConditionTrue,
+			inputConditionStatus: issuersv1.ConditionTrue,
 			inputReason:          "I'm ready now reason",
 			inputMessage:         "I'm ready now message",
-			expectedStatus: &issuersv1beta1.GoogleCASIssuerStatus{
-				Conditions: []issuersv1beta1.GoogleCASIssuerCondition{{
-					Type:               issuersv1beta1.IssuerConditionReady,
-					Status:             issuersv1beta1.ConditionTrue,
+			expectedStatus: &issuersv1.GoogleCASIssuerStatus{
+				Conditions: []issuersv1.GoogleCASIssuerCondition{{
+					Type:               issuersv1.IssuerConditionReady,
+					Status:             issuersv1.ConditionTrue,
 					LastTransitionTime: nil,
 					Reason:             "I'm ready now reason",
 					Message:            "I'm ready now message",

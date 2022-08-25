@@ -190,7 +190,7 @@ Inspect the sample configurations below and update the PROJECT_ID as appropriate
 
 ```yaml
 # googlecasissuer-sample.yaml
-apiVersion: cas-issuer.jetstack.io/v1beta1
+apiVersion: cas-issuer.jetstack.io/v1
 kind: GoogleCASIssuer
 metadata:
   name: googlecasissuer-sample
@@ -212,7 +212,7 @@ or
 
 ```yaml
 # googlecasclusterissuer-sample.yaml
-apiVersion: cas-issuer.jetstack.io/v1beta1
+apiVersion: cas-issuer.jetstack.io/v1
 kind: GoogleCASClusterIssuer
 metadata:
   name: googlecasclusterissuer-sample

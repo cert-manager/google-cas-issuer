@@ -14,21 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1beta1
+package v1
 
 import (
 	cmmetav1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // GoogleCASIssuerSpec defines the desired state of GoogleCASIssuer
 type GoogleCASIssuerSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// Project is the Google Cloud Project ID
 	Project string `json:"project,omitempty"`
 
@@ -51,9 +45,6 @@ type GoogleCASIssuerSpec struct {
 
 // GoogleCASIssuerStatus defines the observed state of GoogleCASIssuer
 type GoogleCASIssuerStatus struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// +optional
 	Conditions []GoogleCASIssuerCondition `json:"conditions,omitempty"`
 }

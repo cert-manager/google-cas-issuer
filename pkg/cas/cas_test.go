@@ -26,11 +26,11 @@ import (
 	"google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/jetstack/google-cas-issuer/api/v1beta1"
+	"github.com/jetstack/google-cas-issuer/api/v1"
 )
 
 func TestNewSigner(t *testing.T) {
-	spec := &v1beta1.GoogleCASIssuerSpec{
+	spec := &v1.GoogleCASIssuerSpec{
 		CaPoolId: "test-pool",
 		Project:  "test-project",
 		Location: "test-location",
@@ -51,7 +51,7 @@ func TestNewSigner(t *testing.T) {
 }
 
 func TestNewSignerMissingPoolId(t *testing.T) {
-	spec := &v1beta1.GoogleCASIssuerSpec{
+	spec := &v1.GoogleCASIssuerSpec{
 		CaPoolId: "",
 	}
 	ctx := context.Background()

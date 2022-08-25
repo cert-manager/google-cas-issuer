@@ -24,7 +24,7 @@ spec:
         - jsonPath: .status.conditions[?(@.type=='Ready')].message
           name: message
           type: string
-      name: v1beta1
+      name: v1
       schema:
         openAPIV3Schema:
           description: GoogleCASIssuer is the Schema for the googlecasissuers API
