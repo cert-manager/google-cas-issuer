@@ -16,7 +16,7 @@ clean: ## clean up created files
 	rm -rf $(BINDIR) $(ARTIFACTS_DIR)
 
 # Run tests
-test: generate fmt vet manifests
+test: generate fmt vet helm-docs manifests
 	go test ./api/... ./pkg/... ./cmd/... -coverprofile cover.out
 
 .PHONY: e2e
@@ -43,6 +43,10 @@ fmt:
 vet:
 	go vet ./...
 
+.PHONY: helm-docs
+helm-docs: $(BINDIR)/helm-docs # verify helm-docs
+	./hack/verify-helm-docs.sh
+
 # Generate code
 generate: depend
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
@@ -56,7 +60,7 @@ docker-push:
 	docker push ${IMG}
 
 .PHONY: depend
-depend: $(BINDIR) $(BINDIR)/kind $(BINDIR)/helm $(BINDIR)/kubectl $(BINDIR)/ginkgo $(BINDIR)/controller-gen
+depend: $(BINDIR) $(BINDIR)/kind $(BINDIR)/helm $(BINDIR)/kubectl $(BINDIR)/ginkgo $(BINDIR)/controller-gen $(BINDIR)/helm-docs
 
 $(BINDIR):
 	mkdir -p ./bin
@@ -86,3 +90,5 @@ $(BINDIR)/helm:
 	rm -r $(BINDIR)/$(OS)-$(ARCH) $(BINDIR)/helm.tar.gz
 HELM=$(BINDIR)/helm
 
+$(BINDIR)/helm-docs:
+		cd hack/tools && go build -o $(BINDIR)/helm-docs github.com/norwoodj/helm-docs/cmd/helm-docs

@@ -20,9 +20,9 @@ A Helm chart for jetstack/google-cas-issuer
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| app.approval | object | `{"enabled":true,"subjects":[{"kind":"ServiceAccount","name":"cert-manager-google-cas-issuer","namespace":"cert-manager"}]}` | Handle RBAC permissions for approving Google CAS issuer CertificateRequests. |
+| app.approval | object | `{"enabled":true,"subjects":[{"kind":"ServiceAccount","name":"cert-manager","namespace":"cert-manager"}]}` | Handle RBAC permissions for approving Google CAS issuer CertificateRequests. |
 | app.approval.enabled | bool | `true` | enabled determines whether the ClusterRole and ClusterRoleBinding for approval is created. You will want to disable this if you are managing approval RBAC elsewhere from this chart, for example if you create them separately for all installed issuers. |
-| app.approval.subjects | list | `[{"kind":"ServiceAccount","name":"cert-manager-google-cas-issuer","namespace":"cert-manager"}]` | subjects is the subject that the approval RBAC permissions will be bound to. Here we are binding them to cert-manager's ServiceAccount so that the default approve all approver has the permissions to do so. You will want to change this subject to approver-policy's ServiceAccount if using that project (recommended).   https://cert-manager.io/docs/projects/approver-policy   name: cert-manager-approver-policy   namespace: cert-manager |
+| app.approval.subjects | list | `[{"kind":"ServiceAccount","name":"cert-manager","namespace":"cert-manager"}]` | subjects is the subject that the approval RBAC permissions will be bound to. Here we are binding them to cert-manager's ServiceAccount so that the default approve all approver has the permissions to do so. You will want to change this subject to approver-policy's ServiceAccount if using that project (recommended).   https://cert-manager.io/docs/projects/approver-policy   name: cert-manager-approver-policy   namespace: cert-manager |
 | app.metrics.port | int | `9402` | Port for exposing Prometheus metrics on 0.0.0.0 on path '/metrics'. |
 | app.zapDevel | bool | `true` | Verbosity of google-cas-issuer logging. |
 | image.pullPolicy | string | `"IfNotPresent"` | Kubernetes imagePullPolicy on Deployment. |

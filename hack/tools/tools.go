@@ -6,6 +6,7 @@
 package bin
 
 import (
+	_ "github.com/norwoodj/helm-docs/cmd/helm-docs"
 	_ "github.com/onsi/ginkgo/v2/ginkgo"
 	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
 	_ "sigs.k8s.io/kind"
