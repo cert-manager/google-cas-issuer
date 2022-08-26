@@ -21,7 +21,7 @@ test: generate fmt vet helm-docs manifests
 
 .PHONY: e2e
 e2e: depend docker-build
-	IMG=$(IMG) ./hack/ci/run-e2e.sh
+	./hack/ci/run-e2e.sh
 
 # Build google-cas-issuer binary
 google-cas-issuer: generate fmt vet
