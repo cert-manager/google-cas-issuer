@@ -5,7 +5,7 @@ set -o errexit
 REPO_ROOT="${REPO_ROOT:-$(dirname "${BASH_SOURCE}")/../..}"
 BINDIR="${BINDIR:-${REPO_ROOT}/bin}"
 IMG_REPO="${IMG_REPO:-quay.io/jetstack/cert-manager-google-cas-issuer}"
-IMG_TAG="${IMG_TAG:-latest}"
+IMG_TAG="${IMG_TAG:-}"
 E2E_LOG_DIR="${E2E_LOG_DIR:-${REPO_ROOT}/_artifacts/e2e/logs}"
 
 export PATH="${BINDIR}:${PATH}"

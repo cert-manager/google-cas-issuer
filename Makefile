@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/jetstack/cert-manager-google-cas-issuer:latest
+IMG ?= quay.io/jetstack/cert-manager-google-cas-issuer:$(shell git rev-parse HEAD)
 
 BINDIR ?= $(CURDIR)/bin
 ARCH=$(shell go env GOARCH)
@@ -21,7 +21,7 @@ test: generate fmt vet helm-docs manifests
 
 .PHONY: e2e
 e2e: depend docker-build
-	./hack/ci/run-e2e.sh
+	IMG=$(IMG) ./hack/ci/run-e2e.sh
 
 # Build google-cas-issuer binary
 google-cas-issuer: generate fmt vet
