@@ -1,6 +1,6 @@
 # cert-manager-google-cas-issuer
 
-![Version: v0.5.3](https://img.shields.io/badge/Version-v0.5.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.5.3](https://img.shields.io/badge/AppVersion-v0.5.3-informational?style=flat-square)
+![Version: v0.6.0](https://img.shields.io/badge/Version-v0.6.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.6.0](https://img.shields.io/badge/AppVersion-v0.6.0-informational?style=flat-square)
 
 A Helm chart for jetstack/google-cas-issuer
 
@@ -27,7 +27,7 @@ A Helm chart for jetstack/google-cas-issuer
 | app.metrics.port | int | `9402` | Port for exposing Prometheus metrics on 0.0.0.0 on path '/metrics'. |
 | image.pullPolicy | string | `"IfNotPresent"` | Kubernetes imagePullPolicy on Deployment. |
 | image.repository | string | `"quay.io/jetstack/cert-manager-google-cas-issuer"` | Target image repository. |
-| image.tag | string | `"v0.5.3"` | Target image version tag. |
+| image.tag | string | `"v0.6.0"` | Target image version tag. |
 | imagePullSecrets | list | `[]` | Optional secrets used for pulling the google-cas-issuer container image. |
 | replicaCount | int | `1` | Number of replicas of google-cas-issuer to run. |
 | resources | object | `{}` |  |

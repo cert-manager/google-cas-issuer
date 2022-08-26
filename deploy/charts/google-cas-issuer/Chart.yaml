@@ -12,5 +12,5 @@ maintainers:
 sources:
 - https://github.com/jetstack/google-cas-issuer
 
-appVersion: v0.5.3
-version: v0.5.3
+appVersion: v0.6.0
+version: v0.6.0
