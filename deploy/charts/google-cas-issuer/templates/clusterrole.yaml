@@ -1,10 +1,9 @@
-
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
-  name: google-cas-issuer-role
+  labels:
+{{ include "cert-manager-google-cas-issuer.labels" . | indent 4 }}
+  name: {{ include "cert-manager-google-cas-issuer.name" . }}
 rules:
 - apiGroups:
   - ""
@@ -78,3 +77,22 @@ rules:
   - get
   - patch
   - update
+---
+{{- if .Values.app.approval.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+{{ include "cert-manager-google-cas-issuer.labels" . | indent 4 }}
+  name: {{ include "cert-manager-google-cas-issuer.name" . }}:approval
+rules:
+- apiGroups:
+  - cert-manager.io
+  resourceNames:
+  - googlecasclusterissuers.cas-issuer.jetstack.io/*
+  - googlecasissuers.cas-issuer.jetstack.io/*
+  resources:
+  - signers
+  verbs:
+  - approve
+{{- end }}

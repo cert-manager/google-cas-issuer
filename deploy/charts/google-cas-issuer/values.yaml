@@ -1,0 +1,53 @@
+# -- Number of replicas of google-cas-issuer to run.
+replicaCount: 1
+
+image:
+  # -- Target image repository.
+  repository: quay.io/jetstack/cert-manager-google-cas-issuer
+  # -- Target image version tag.
+  tag: v0.5.3
+  # -- Kubernetes imagePullPolicy on Deployment.
+  pullPolicy: IfNotPresent
+
+# -- Optional secrets used for pulling the google-cas-issuer container image.
+imagePullSecrets: []
+
+app:
+  # -- Verbosity of google-cas-issuer logging.
+  zapDevel: true # true|false
+
+  # -- Handle RBAC permissions for approving Google CAS issuer
+  # CertificateRequests.
+  approval:
+    # -- enabled determines whether the ClusterRole and ClusterRoleBinding for
+    # approval is created. You will want to disable this if you are managing
+    # approval RBAC elsewhere from this chart, for example if you create them
+    # separately for all installed issuers.
+    enabled: true
+    # -- subjects is the subject that the approval RBAC permissions will be
+    # bound to. Here we are binding them to cert-manager's ServiceAccount so
+    # that the default approve all approver has the permissions to do so. You
+    # will want to change this subject to approver-policy's ServiceAccount if
+    # using that project (recommended).
+    #   https://cert-manager.io/docs/projects/approver-policy
+    #   name: cert-manager-approver-policy
+    #   namespace: cert-manager
+    subjects:
+    - kind: ServiceAccount
+      name: cert-manager
+      namespace: cert-manager
+
+  # metrics controls exposing google-cas-issuer metrics.
+  metrics:
+    # -- Port for exposing Prometheus metrics on 0.0.0.0 on path '/metrics'.
+    port: 9402
+
+resources: {}
+  # -- Kubernetes pod resource limits for google-cas-issuer.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # -- Kubernetes pod memory resource requests for google-cas-issuer.
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi

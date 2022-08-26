@@ -6,6 +6,8 @@ ARCH=$(shell go env GOARCH)
 OS=$(shell go env GOOS)
 
 ARTIFACTS_DIR ?= _artifacts
+HELM_VERSION ?= 3.9.4
+CRDS_DIR=$(CURDIR)/deploy/charts/google-cas-issuer/templates/crds/
 
 all: google-cas-issuer
 
@@ -18,7 +20,7 @@ test: generate fmt vet manifests
 	go test ./api/... ./pkg/... ./cmd/... -coverprofile cover.out
 
 .PHONY: e2e
-e2e: $(BINDIR)/kind $(BINDIR)/kustomize $(BINDIR)/ginkgo $(BINDIR)/kubectl docker-build
+e2e: depend docker-build
 	./hack/ci/run-e2e.sh
 
 # Build google-cas-issuer binary
@@ -29,22 +31,9 @@ google-cas-issuer: generate fmt vet
 run: generate fmt vet manifests
 	go run ./main.go --zap-devel=true
 
-# Install CRDs into a cluster
-install: manifests $(BINDIR)/kustomize
-	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
-
-# Uninstall CRDs from a cluster
-uninstall: manifests $(BINDIR)/kustomize
-	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete -f -
-
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests $(BINDIR)/kustomize
-	cd config/manager && $(BINDIR)/kustomize edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
-
-# Generate manifests e.g. CRD, RBAC etc.
-manifests: $(BINDIR)/controller-gen
-	$(CONTROLLER_GEN) crd rbac:roleName=google-cas-issuer-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+# Generate CRDs
+manifests: depend
+	$(CONTROLLER_GEN) crd schemapatch:manifests=$(CRDS_DIR) output:dir=$(CRDS_DIR) paths=./api/...
 
 # Run go fmt against code
 fmt:
@@ -55,7 +44,7 @@ vet:
 	go vet ./...
 
 # Generate code
-generate: $(BINDIR)/controller-gen
+generate: depend
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
@@ -66,27 +55,34 @@ docker-build: test
 docker-push:
 	docker push ${IMG}
 
+.PHONY: depend
+depend: $(BINDIR) $(BINDIR)/kind $(BINDIR)/helm $(BINDIR)/kubectl $(BINDIR)/ginkgo $(BINDIR)/controller-gen
+
 $(BINDIR):
 	mkdir -p ./bin
 
-$(BINDIR)/controller-gen: $(BINDIR)
+$(BINDIR)/controller-gen:
 	cd hack/tools && go build -o $@ sigs.k8s.io/controller-tools/cmd/controller-gen
 CONTROLLER_GEN=$(BINDIR)/controller-gen
 
-$(BINDIR)/kustomize: $(BINDIR)
-	cd hack/tools && go build -o $@ sigs.k8s.io/kustomize/kustomize/v3
-KUSTOMIZE=$(BINDIR)/kustomize
-
-$(BINDIR)/kind: $(BINDIR)
+$(BINDIR)/kind:
 	cd hack/tools && go build -o $@ sigs.k8s.io/kind
 KIND=$(BINDIR)/kind
 
-$(BINDIR)/ginkgo: $(BINDIR)
+$(BINDIR)/ginkgo:
 	cd hack/tools && go build -o $@ github.com/onsi/ginkgo/v2/ginkgo
 GINKGO=$(BINDIR)/ginkgo
 
 # find or download kubectl
-$(BINDIR)/kubectl: $(BINDIR)
+$(BINDIR)/kubectl:
 	curl -o $@ -LO "https://storage.googleapis.com/kubernetes-release/release/$(shell curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/$(OS)/$(ARCH)/kubectl"
 	chmod +x $@
 KUBECTL=$(BINDIR)/kubectl
+
+$(BINDIR)/helm:
+	curl -o $(BINDIR)/helm.tar.gz -LO "https://get.helm.sh/helm-v$(HELM_VERSION)-$(OS)-$(ARCH).tar.gz"
+	tar -C $(BINDIR) -xzf $(BINDIR)/helm.tar.gz
+	cp $(BINDIR)/$(OS)-$(ARCH)/helm $(BINDIR)/helm
+	rm -r $(BINDIR)/$(OS)-$(ARCH) $(BINDIR)/helm.tar.gz
+HELM=$(BINDIR)/helm
+

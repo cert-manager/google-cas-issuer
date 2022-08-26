@@ -1,0 +1,29 @@
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  labels:
+{{ include "cert-manager-google-cas-issuer.labels" . | indent 4 }}
+  name: {{ include "cert-manager-google-cas-issuer.name" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "cert-manager-google-cas-issuer.name" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "cert-manager-google-cas-issuer.name" . }}
+  namespace: {{ .Release.Namespace }}
+---
+{{- if .Values.app.approval.enabled }}
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  labels:
+{{ include "cert-manager-google-cas-issuer.labels" . | indent 4 }}
+  name: {{ include "cert-manager-google-cas-issuer.name" . }}:approval
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "cert-manager-google-cas-issuer.name" . }}:approval
+subjects:
+{{ .Values.app.approval.subjects | toYaml | indent 2}}
+{{- end }}

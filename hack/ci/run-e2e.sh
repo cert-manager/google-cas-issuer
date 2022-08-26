@@ -4,7 +4,8 @@ set -o errexit
 
 REPO_ROOT="${REPO_ROOT:-$(dirname "${BASH_SOURCE}")/../..}"
 BINDIR="${BINDIR:-${REPO_ROOT}/bin}"
-IMG="${IMG:-quay.io/jetstack/cert-manager-google-cas-issuer:latest}"
+IMG_REPO="${IMG_REPO:-quay.io/jetstack/cert-manager-google-cas-issuer}"
+IMG_TAG="${IMG_TAG:-latest}"
 E2E_LOG_DIR="${E2E_LOG_DIR:-${REPO_ROOT}/_artifacts/e2e/logs}"
 
 export PATH="${BINDIR}:${PATH}"
@@ -24,11 +25,12 @@ function export_logs_delete {
 kind version
 kind create cluster --name casissuer-e2e
 kind export kubeconfig --name casissuer-e2e --kubeconfig $KUBECONFIG
-kind load docker-image --name casissuer-e2e $IMG
+kind load docker-image --name casissuer-e2e $IMG_REPO:$IMG_TAG
 kubectl --kubeconfig $KUBECONFIG apply -f https://github.com/jetstack/cert-manager/releases/download/v1.9.1/cert-manager.yaml
-kustomize build config/crd | kubectl --kubeconfig $KUBECONFIG apply -f -
-cd config/manager && kustomize edit set image controller=${IMG} && cd -
-kustomize build config/default | kubectl --kubeconfig $KUBECONFIG apply -f -
+helm upgrade -i cert-manager-google-cas-issuer ./deploy/charts/google-cas-issuer -n cert-manager \
+  --set image.repository=$IMG_REPO \
+  --set image.tag=$IMG_TAG \
+  --set image.pullPolicy=Never
 timeout 5m bash -c "until kubectl --kubeconfig $KUBECONFIG --timeout=120s wait --for=condition=Ready pods --all --namespace kube-system; do sleep 1; done"
 timeout 5m bash -c "until kubectl --kubeconfig $KUBECONFIG --timeout=120s wait --for=condition=Ready pods --all --namespace cert-manager; do sleep 1; done"
 trap export_logs_delete EXIT

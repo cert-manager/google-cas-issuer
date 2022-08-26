@@ -34,7 +34,12 @@ If not already running in the cluster, install cert-manager by following the [of
 
 ### Installing Google CAS Issuer for cert-manager
 
-Assuming that you have installed cert-manager in the `cert-manager` namespace, you can use a single kubectl
+```shell
+helm repo add jetstack https://charts.jetstack.io --force-update
+helm upgrade -i cert-manager-google-cas-issuer jetstack/cert-manager-google-cas-issuer -n cert-manager --wait
+```
+
+Or alternatively, assuming that you have installed cert-manager in the `cert-manager` namespace, you can use a single kubectl
 command to install Google CAS Issuer. 
 Visit the [GitHub releases](https://github.com/jetstack/google-cas-issuer/releases), select the latest release
 and copy the command, e.g.
@@ -45,29 +50,9 @@ kubectl apply -f https://github.com/jetstack/google-cas-issuer/releases/download
 
 You can then skip to the [Setting up Google Cloud IAM](#setting-up-google-cloud-iam) section.
 
-#### Customise the deployment (for developers)
-
-Examine the ClusterRole and ClusterRolebinding in `config/rbac/role.yaml` and `config/rbac/role_binding.yaml`. By default, these give the `ksa-google-cas-issuer` Kubernetes service account in the cert-manager namespace all the necessary permissions. Customise these to your needs.
-
-```shell
-kubectl create serviceaccount -n cert-manager ksa-google-cas-issuer
-
-kubectl apply -f config/rbac/role.yaml
-kubectl apply -f config/rbac/role_binding.yaml
-```
-
-Install the Google CAS Issuer CRDs in `config/crd`. These manifests use kustomization (hence the `-k` option).
-
-```shell
-kubectl apply -k config/crd
-```
-
 ##### Build and push the controller image
 
 **Note**: you can skip this step if using the public images at [quay.io](https://quay.io/repository/jetstack/cert-manager-google-cas-issuer?tag=latest&tab=tags).
-
-To build the image, ensure you have
-[kubebuilder installed](https://book.kubebuilder.io/quick-start.html#installation).
 
 Build the docker image:
 
