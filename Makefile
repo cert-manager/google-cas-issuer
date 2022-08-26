@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/jetstack/cert-manager-google-cas-issuer:latest
+IMG ?= quay.io/jetstack/cert-manager-google-cas-issuer:$(shell git rev-parse HEAD)
 
 BINDIR ?= $(CURDIR)/bin
 ARCH=$(shell go env GOARCH)
