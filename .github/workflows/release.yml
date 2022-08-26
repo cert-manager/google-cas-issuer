@@ -30,8 +30,8 @@ jobs:
         uses: docker/login-action@v1
         with:
           registry: quay.io
-          username: jake_jetstack
-          password: ${{ secrets.QUAY_ENCRYPTED_PASSWORD }}
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
       -
         name: Build and push
         uses: docker/build-push-action@v2
