@@ -12,6 +12,11 @@ image:
 # -- Optional secrets used for pulling the google-cas-issuer container image.
 imagePullSecrets: []
 
+serviceAccount:
+  # -- Optional annotations to add to the service account
+  annotations: {}
+
+
 app:
     # -- Verbosity of google-cas-issuer logging.
   logLevel: 1 # 1-5
