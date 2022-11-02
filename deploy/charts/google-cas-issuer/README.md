@@ -1,6 +1,6 @@
 # cert-manager-google-cas-issuer
 
-![Version: v0.6.1](https://img.shields.io/badge/Version-v0.6.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.6.1](https://img.shields.io/badge/AppVersion-v0.6.1-informational?style=flat-square)
+![Version: v0.6.2](https://img.shields.io/badge/Version-v0.6.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.6.1](https://img.shields.io/badge/AppVersion-v0.6.1-informational?style=flat-square)
 
 A Helm chart for jetstack/google-cas-issuer
 
@@ -31,4 +31,5 @@ A Helm chart for jetstack/google-cas-issuer
 | imagePullSecrets | list | `[]` | Optional secrets used for pulling the google-cas-issuer container image. |
 | replicaCount | int | `1` | Number of replicas of google-cas-issuer to run. |
 | resources | object | `{}` |  |
+| serviceAccount.annotations | object | `{}` | Optional annotations to add to the service account |
 
