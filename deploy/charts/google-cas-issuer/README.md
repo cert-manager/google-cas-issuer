@@ -27,7 +27,7 @@ A Helm chart for jetstack/google-cas-issuer
 | app.metrics.port | int | `9402` | Port for exposing Prometheus metrics on 0.0.0.0 on path '/metrics'. |
 | image.pullPolicy | string | `"IfNotPresent"` | Kubernetes imagePullPolicy on Deployment. |
 | image.repository | string | `"quay.io/jetstack/cert-manager-google-cas-issuer"` | Target image repository. |
-| image.tag | string | `"v0.6.0"` | Target image version tag. |
+| image.tag | string | `"0.6.0"` | Target image version tag. |
 | imagePullSecrets | list | `[]` | Optional secrets used for pulling the google-cas-issuer container image. |
 | replicaCount | int | `1` | Number of replicas of google-cas-issuer to run. |
 | resources | object | `{}` |  |
