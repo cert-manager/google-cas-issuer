@@ -29,7 +29,7 @@ $HELM_DOCS_BIN ${KUBE_ROOT}/deploy/charts/google-cas-issuer -d -l error > ${TEMP
 
 if ! cmp -s "${KUBE_ROOT}/deploy/charts/google-cas-issuer/README.md" "${TEMP_FILE}"; then
   echo "Helm chart README.md is out of date."
-  echo "Please run './hack/update-helm-docs.sh'."
+  echo "Please run 'make update-helm-docs'."
   exit 1
 fi
 

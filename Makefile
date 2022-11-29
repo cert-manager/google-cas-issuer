@@ -47,6 +47,10 @@ vet:
 helm-docs: $(BINDIR)/helm-docs # verify helm-docs
 	./hack/verify-helm-docs.sh
 
+.PHONY: update-helm-docs
+update-helm-docs: $(BINDIR)/helm-docs # update helm-docs
+	./hack/update-helm-docs.sh
+
 # Generate code
 generate: depend
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
