@@ -5,7 +5,7 @@ image:
   # -- Target image repository.
   repository: quay.io/jetstack/cert-manager-google-cas-issuer
   # -- Target image version tag.
-  tag: 0.6.1
+  tag: 0.6.2
   # -- Kubernetes imagePullPolicy on Deployment.
   pullPolicy: IfNotPresent
 
