@@ -7,7 +7,7 @@ description: A Helm chart for jetstack/google-cas-issuer
 home: https://github.com/jetstack/google-cas-issuer
 maintainers:
 - name: jetstack
-  email: joshua.vanleeuwen@jetstack.io
+  email: cert-manager-maintainers@jetstack.io
   url: https://platform.jetstack.io
 sources:
 - https://github.com/jetstack/google-cas-issuer
