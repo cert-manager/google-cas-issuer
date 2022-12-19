@@ -10,7 +10,7 @@ A Helm chart for jetstack/google-cas-issuer
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| jetstack | <joshua.vanleeuwen@jetstack.io> | <https://platform.jetstack.io> |
+| jetstack | <cert-manager-maintainers@jetstack.io> | <https://platform.jetstack.io> |
 
 ## Source Code
 
