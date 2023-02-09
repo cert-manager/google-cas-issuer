@@ -12,10 +12,12 @@ image:
 # -- Optional secrets used for pulling the google-cas-issuer container image.
 imagePullSecrets: []
 
+# -- Labels to apply to all resources
+commonLabels: {}
+
 serviceAccount:
   # -- Optional annotations to add to the service account
   annotations: {}
-
 
 app:
     # -- Verbosity of google-cas-issuer logging.
@@ -47,12 +49,44 @@ app:
     # -- Port for exposing Prometheus metrics on 0.0.0.0 on path '/metrics'.
     port: 9402
 
+# -- Optional additional annotations to add to the google-cas-issuer Deployment
+deploymentAnnotations: {}
+
+# -- Optional additional annotations to add to the google-cas-issuer Pods
+podAnnotations: {}
+
+# -- Optional additional labels to add to the google-cas-issuer Pods
+podLabels: {}
+
+# -- Kubernetes pod resource requests/limits for google-cas-issuer.
 resources: {}
-  # -- Kubernetes pod resource limits for google-cas-issuer.
   # limits:
   #   cpu: 100m
   #   memory: 128Mi
-  # -- Kubernetes pod memory resource requests for google-cas-issuer.
   # requests:
   #   cpu: 100m
   #   memory: 128Mi
+
+# -- Kubernetes node selector: node labels for pod assignment
+nodeSelector: {}
+  # -- Allow scheduling of DaemonSet on linux nodes only
+  # kubernetes.io/os: linux
+
+# -- Kubernetes affinity: constraints for pod assignment
+affinity: {}
+  # nodeAffinity:
+  #  requiredDuringSchedulingIgnoredDuringExecution:
+  #    nodeSelectorTerms:
+  #    - matchExpressions:
+  #      - key: foo.bar.com/role
+  #        operator: In
+  #        values:
+  #        - master
+
+# -- Kubernetes pod tolerations for google-cas-issuer
+tolerations: []
+  # -- Allow scheduling of DaemonSet on all nodes
+  # - operator: "Exists"
+
+# -- Optional priority class to be used for the google-cas-issuer pods.
+priorityClassName: ""

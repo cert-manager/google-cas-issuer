@@ -1,4 +1,4 @@
-apiVersion: v1
+apiVersion: v2
 
 name: cert-manager-google-cas-issuer
 type: application
