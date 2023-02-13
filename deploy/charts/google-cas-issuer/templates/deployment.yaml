@@ -33,4 +33,4 @@ spec:
           - --metrics-addr=:{{.Values.app.metrics.port}}
 
         resources:
-          {{- toYaml .Values.resources | indent 12 }}
+          {{- toYaml .Values.resources | nindent 10 }}
