@@ -74,6 +74,7 @@ func (c *casSigner) Sign(csr []byte, expiry time.Duration) (cert []byte, ca []by
 				Seconds: expiry.Milliseconds() / 1000,
 				Nanos:   0,
 			},
+			CertificateTemplate: c.spec.CertificateTemplate,
 		},
 		RequestId:                     uuid.New().String(),
 		IssuingCertificateAuthorityId: c.spec.CertificateAuthorityId,
