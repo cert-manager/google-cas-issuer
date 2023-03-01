@@ -68,7 +68,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Just ignore the request if the certificate request has been deleted.
 	var certificateRequest cmapi.CertificateRequest
 	if err := r.Get(ctx, req.NamespacedName, &certificateRequest); err != nil {
-		if err := client.IgnoreNotFound(err); err != nil {
+		if err := client.IgnoreNotFound(err); err == nil {
 			log.Info("Certificate Request not found, ignoring", "cr", req.NamespacedName)
 		}
 		return ctrl.Result{}, err
