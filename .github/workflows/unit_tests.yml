@@ -1,0 +1,29 @@
+# This workflow runs unpriviledged unit tests.
+name: unit-tests
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # At 03:23 on every 3rd day
+    - cron: "23 3 */3 * *"
+
+jobs:
+  run_tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: '^1.19'
+
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Run unit tests
+      run: make test
