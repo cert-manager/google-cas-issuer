@@ -274,3 +274,11 @@ certificate.cert-manager.io/demo-certificate   True    demo-cert-tls  1m
 NAME                                     TYPE                                  DATA   AGE
 secret/demo-cert-tls                     kubernetes.io/tls                     3      1m
 ```
+
+## Continuous Integration
+
+This project uses GitHub Actions to run continuous integration tests.
+There are two required test workflows:
+- `run_unit_tests` - this runs automatically on every pull request
+- `run_e2e_tests` - this runs on a pull request when the `ok-to-test` label is added  
+**⚠️ IMPORTANT: A maintainer must add this label manually after verifying that the commits in your PR are non-malicious. Ping a maintainer when your PR is ready. This label has to be re-added every time a change is made in the PR.**
