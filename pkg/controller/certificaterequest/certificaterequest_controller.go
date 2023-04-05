@@ -30,6 +30,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/jetstack/google-cas-issuer/pkg/cas"
 	"github.com/spf13/viper"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -68,7 +69,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Just ignore the request if the certificate request has been deleted.
 	var certificateRequest cmapi.CertificateRequest
 	if err := r.Get(ctx, req.NamespacedName, &certificateRequest); err != nil {
-		if err := client.IgnoreNotFound(err); err != nil {
+		if apierrors.IsNotFound(err) {
 			log.Info("Certificate Request not found, ignoring", "cr", req.NamespacedName)
 		}
 		return ctrl.Result{}, err
