@@ -7,7 +7,7 @@ on:
       - main
 
 jobs:
-  run_tests:
+  run_e2e_tests:
     # IMPORTANT: we require the ok-to-test label before running the test!
     if: contains(github.event.pull_request.labels.*.name, 'ok-to-test')
 
@@ -51,7 +51,7 @@ jobs:
   remove-ok-to-test:
     name: Remove ok-to-test label
     needs:
-      - run_tests
+      - run_e2e_tests
     runs-on: ubuntu-latest
     if: contains(github.event.pull_request.labels.*.name, 'ok-to-test') && always()
     steps:
