@@ -48,6 +48,9 @@ spec:
                 certificateAuthorityId:
                   description: CertificateAuthorityId is specific certificate authority to use to sign. Omit in order to load balance across all CAs in the pool
                   type: string
+                certificateTemplate:
+                  description: CertificateTemplate is specific certificate template to use. Omit to not specify a template
+                  type: string
                 credentials:
                   description: Credentials is a reference to a Kubernetes Secret Key that contains Google Service Account Credentials
                   type: object
