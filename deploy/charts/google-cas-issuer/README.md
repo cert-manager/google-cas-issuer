@@ -1,6 +1,6 @@
 # cert-manager-google-cas-issuer
 
-![Version: v0.6.2](https://img.shields.io/badge/Version-v0.6.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.6.2](https://img.shields.io/badge/AppVersion-v0.6.2-informational?style=flat-square)
+![Version: v0.6.3](https://img.shields.io/badge/Version-v0.6.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.6.3](https://img.shields.io/badge/AppVersion-v0.6.3-informational?style=flat-square)
 
 A Helm chart for jetstack/google-cas-issuer
 
@@ -30,7 +30,7 @@ A Helm chart for jetstack/google-cas-issuer
 | deploymentAnnotations | object | `{}` | Optional additional annotations to add to the google-cas-issuer Deployment |
 | image.pullPolicy | string | `"IfNotPresent"` | Kubernetes imagePullPolicy on Deployment. |
 | image.repository | string | `"quay.io/jetstack/cert-manager-google-cas-issuer"` | Target image repository. |
-| image.tag | string | `"0.6.2"` | Target image version tag. |
+| image.tag | string | `"0.6.3"` | Target image version tag. |
 | imagePullSecrets | list | `[]` | Optional secrets used for pulling the google-cas-issuer container image. |
 | nodeSelector | object | `{}` | Kubernetes node selector: node labels for pod assignment |
 | podAnnotations | object | `{}` | Optional additional annotations to add to the google-cas-issuer Pods |
