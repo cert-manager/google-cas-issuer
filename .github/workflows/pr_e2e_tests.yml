@@ -1,4 +1,4 @@
-# This workflow runs priviledged e2e tests for untrusted sources (incomming PRs).
+# This workflow runs privileged e2e tests for untrusted sources (incomming PRs).
 name: pr-e2e-tests
 on:
   pull_request_target:

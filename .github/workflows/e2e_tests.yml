@@ -1,4 +1,4 @@
-# This workflow runs priviledged e2e tests for trusted sources.
+# This workflow runs privileged e2e tests for trusted sources.
 name: e2e-tests
 on:
   push:
