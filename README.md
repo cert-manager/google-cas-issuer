@@ -45,7 +45,7 @@ Visit the [GitHub releases](https://github.com/jetstack/google-cas-issuer/releas
 and copy the command, e.g.
 
 ```shell
-kubectl apply -f https://github.com/jetstack/google-cas-issuer/releases/download/v0.6.1/google-cas-issuer-v0.6.1.yaml
+kubectl apply -f https://github.com/jetstack/google-cas-issuer/releases/download/v0.7.0/google-cas-issuer-v0.7.0.yaml
 ```
 
 You can then skip to the [Setting up Google Cloud IAM](#setting-up-google-cloud-iam) section.

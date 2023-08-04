@@ -30,7 +30,7 @@ A Helm chart for jetstack/google-cas-issuer
 | deploymentAnnotations | object | `{}` | Optional additional annotations to add to the google-cas-issuer Deployment |
 | image.pullPolicy | string | `"IfNotPresent"` | Kubernetes imagePullPolicy on Deployment. |
 | image.repository | string | `"quay.io/jetstack/cert-manager-google-cas-issuer"` | Target image repository. |
-| image.tag | string | `"0.6.2"` | Target image version tag. |
+| image.tag | string | `"0.7.0"` | Target image version tag. |
 | imagePullSecrets | list | `[]` | Optional secrets used for pulling the google-cas-issuer container image. |
 | nodeSelector | object | `{}` | Kubernetes node selector: node labels for pod assignment |
 | podAnnotations | object | `{}` | Optional additional annotations to add to the google-cas-issuer Pods |
