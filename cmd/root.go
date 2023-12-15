@@ -27,6 +27,8 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	issuersv1beta1 "github.com/jetstack/google-cas-issuer/api/v1beta1"
 	"github.com/jetstack/google-cas-issuer/pkg/controller/certificaterequest"
@@ -79,11 +81,15 @@ func root() error {
 
 	// Create controller-manager
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: viper.GetString("metrics-addr"),
-		Port:               9443,
-		LeaderElection:     viper.GetBool("enable-leader-election"),
-		LeaderElectionID:   viper.GetString("leader-election-id"),
+		Scheme: scheme,
+		Metrics: server.Options{
+			BindAddress: viper.GetString("metrics-addr"),
+		},
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port: 9443,
+		}),
+		LeaderElection:   viper.GetBool("enable-leader-election"),
+		LeaderElectionID: viper.GetString("leader-election-id"),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
