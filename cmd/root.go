@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"flag"
+	"time"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/spf13/cobra"
@@ -31,8 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	issuersv1beta1 "github.com/jetstack/google-cas-issuer/api/v1beta1"
-	"github.com/jetstack/google-cas-issuer/pkg/controller/certificaterequest"
-	"github.com/jetstack/google-cas-issuer/pkg/controller/issuer"
+	controllers "github.com/jetstack/google-cas-issuer/pkg/controllers"
 )
 
 var (
@@ -99,32 +99,10 @@ func root() error {
 	ctx := ctrl.SetupSignalHandler()
 
 	// Start Controllers
-	if err = (&issuer.GoogleCASIssuerReconciler{
-		Kind:     "GoogleCASIssuer",
-		Client:   mgr.GetClient(),
-		Log:      ctrl.Log.WithName("controller").WithName("GoogleCASIssuer"),
-		Recorder: mgr.GetEventRecorderFor("cas-issuer-googlecasissuer-controller"),
-		Scheme:   mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	if err = (&controllers.GoogleCAS{
+		MaxRetryDuration: 30 * time.Second,
+	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GoogleCASIssuer")
-		return err
-	}
-	if err = (&issuer.GoogleCASIssuerReconciler{
-		Kind:     "GoogleCASClusterIssuer",
-		Client:   mgr.GetClient(),
-		Log:      ctrl.Log.WithName("controller").WithName("GoogleCASClusterIssuer"),
-		Recorder: mgr.GetEventRecorderFor("cas-issuer-googlecasclusterissuer-controller"),
-		Scheme:   mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "GoogleCASClusterIssuer")
-		return err
-	}
-	if err = (&certificaterequest.CertificateRequestReconciler{
-		Client:   mgr.GetClient(),
-		Log:      ctrl.Log.WithName("controller").WithName("CertificateRequest"),
-		Recorder: mgr.GetEventRecorderFor("cas-issuer-certificaterequest-controller"),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CertificateRequest")
 		return err
 	}
 	// +kubebuilder:scaffold:builder

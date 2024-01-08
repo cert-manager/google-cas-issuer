@@ -18,17 +18,12 @@ package v1beta1
 
 import (
 	cmmetav1 "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	"github.com/cert-manager/issuer-lib/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // GoogleCASIssuerSpec defines the desired state of GoogleCASIssuer
 type GoogleCASIssuerSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	// Project is the Google Cloud Project ID
 	Project string `json:"project,omitempty"`
 
@@ -54,15 +49,6 @@ type GoogleCASIssuerSpec struct {
 	CertificateTemplate string `json:"certificateTemplate,omitempty"`
 }
 
-// GoogleCASIssuerStatus defines the observed state of GoogleCASIssuer
-type GoogleCASIssuerStatus struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// +optional
-	Conditions []GoogleCASIssuerCondition `json:"conditions,omitempty"`
-}
-
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
@@ -74,8 +60,18 @@ type GoogleCASIssuer struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   GoogleCASIssuerSpec   `json:"spec,omitempty"`
-	Status GoogleCASIssuerStatus `json:"status,omitempty"`
+	Status v1alpha1.IssuerStatus `json:"status,omitempty"`
 }
+
+func (vi *GoogleCASIssuer) GetStatus() *v1alpha1.IssuerStatus {
+	return &vi.Status
+}
+
+func (vi *GoogleCASIssuer) GetIssuerTypeIdentifier() string {
+	return "googlecasissuers.cas-issuer.jetstack.io"
+}
+
+var _ v1alpha1.Issuer = &GoogleCASIssuer{}
 
 // +kubebuilder:object:root=true
 // GoogleCASIssuerList contains a list of GoogleCASIssuer
@@ -83,60 +79,6 @@ type GoogleCASIssuerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []GoogleCASIssuer `json:"items"`
-}
-
-// +kubebuilder:validation:Enum=Ready
-type GoogleCASIssuerConditionType string
-
-const (
-	// IssuerConditionReady indicates that a CAS Issuer is ready for use.
-	// This is defined as:
-	IssuerConditionReady GoogleCASIssuerConditionType = "Ready"
-)
-
-// ConditionStatus represents a condition's status.
-// +kubebuilder:validation:Enum=True;False;Unknown
-type ConditionStatus string
-
-// These are valid condition statuses. "ConditionTrue" means a resource is in
-// the condition; "ConditionFalse" means a resource is not in the condition;
-// "ConditionUnknown" means kubernetes can't decide if a resource is in the
-// condition or not. In the future, we could add other intermediate
-// conditions, e.g. ConditionDegraded.
-const (
-	// ConditionTrue represents the fact that a given condition is true
-	ConditionTrue ConditionStatus = "True"
-
-	// ConditionFalse represents the fact that a given condition is false
-	ConditionFalse ConditionStatus = "False"
-
-	// ConditionUnknown represents the fact that a given condition is unknown
-	ConditionUnknown ConditionStatus = "Unknown"
-)
-
-// IssuerCondition contains condition information for a CAS Issuer.
-type GoogleCASIssuerCondition struct {
-	// Type of the condition, currently ('Ready').
-	Type GoogleCASIssuerConditionType `json:"type"`
-
-	// Status of the condition, one of ('True', 'False', 'Unknown').
-	// +kubebuilder:validation:Enum=True;False;Unknown
-	Status ConditionStatus `json:"status"`
-
-	// LastTransitionTime is the timestamp corresponding to the last status
-	// change of this condition.
-	// +optional
-	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
-
-	// Reason is a brief machine readable explanation for the condition's last
-	// transition.
-	// +optional
-	Reason string `json:"reason,omitempty"`
-
-	// Message is a human readable description of the details of the last
-	// transition, complementing reason.
-	// +optional
-	Message string `json:"message,omitempty"`
 }
 
 func init() {

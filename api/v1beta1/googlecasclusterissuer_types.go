@@ -17,11 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/cert-manager/issuer-lib/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
@@ -35,8 +33,18 @@ type GoogleCASClusterIssuer struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   GoogleCASIssuerSpec   `json:"spec,omitempty"`
-	Status GoogleCASIssuerStatus `json:"status,omitempty"`
+	Status v1alpha1.IssuerStatus `json:"status,omitempty"`
 }
+
+func (vi *GoogleCASClusterIssuer) GetStatus() *v1alpha1.IssuerStatus {
+	return &vi.Status
+}
+
+func (vi *GoogleCASClusterIssuer) GetIssuerTypeIdentifier() string {
+	return "googlecasclusterissuers.cas-issuer.jetstack.io"
+}
+
+var _ v1alpha1.Issuer = &GoogleCASClusterIssuer{}
 
 // +kubebuilder:object:root=true
 // GoogleCASClusterIssuerList contains a list of GoogleCASClusterIssuer

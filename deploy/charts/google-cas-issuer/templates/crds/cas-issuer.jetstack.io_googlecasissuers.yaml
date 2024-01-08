@@ -70,13 +70,13 @@ spec:
                   description: Project is the Google Cloud Project ID
                   type: string
             status:
-              description: GoogleCASIssuerStatus defines the observed state of GoogleCASIssuer
               type: object
               properties:
                 conditions:
+                  description: List of status conditions to indicate the status of an Issuer. Known condition types are `Ready`.
                   type: array
                   items:
-                    description: IssuerCondition contains condition information for a CAS Issuer.
+                    description: IssuerCondition contains condition information for an Issuer.
                     type: object
                     required:
                       - status
@@ -89,26 +89,26 @@ spec:
                       message:
                         description: Message is a human readable description of the details of the last transition, complementing reason.
                         type: string
+                      observedGeneration:
+                        description: If set, this represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.condition[x].observedGeneration is 9, the condition is out of date with respect to the current state of the Issuer.
+                        type: integer
+                        format: int64
                       reason:
                         description: Reason is a brief machine readable explanation for the condition's last transition.
                         type: string
                       status:
-                        description: Status of the condition, one of ('True', 'False', 'Unknown').
-                        type: string
-                        allOf:
-                          - enum:
-                              - "True"
-                              - "False"
-                              - Unknown
-                          - enum:
-                              - "True"
-                              - "False"
-                              - Unknown
-                      type:
-                        description: Type of the condition, currently ('Ready').
+                        description: Status of the condition, one of (`True`, `False`, `Unknown`).
                         type: string
                         enum:
-                          - Ready
+                          - "True"
+                          - "False"
+                          - Unknown
+                      type:
+                        description: Type of the condition, known values are (`Ready`).
+                        type: string
+                  x-kubernetes-list-map-keys:
+                    - type
+                  x-kubernetes-list-type: map
       served: true
       storage: true
       subresources:
