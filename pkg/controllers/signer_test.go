@@ -14,50 +14,41 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cas
+package controllers
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/jetstack/google-cas-issuer/api/v1beta1"
 )
 
-func TestNewSigner(t *testing.T) {
+func TestBuildParentString(t *testing.T) {
 	spec := &v1beta1.GoogleCASIssuerSpec{
 		CaPoolId: "test-pool",
 		Project:  "test-project",
 		Location: "test-location",
 	}
-	ctx := context.Background()
-	namespace := "test"
-	client := fake.NewFakeClient()
-	res, err := newSignerNoSelftest(ctx, spec, client, namespace)
+	parent, err := buildParentString(spec)
 	if err != nil {
 		t.Errorf("NewSigner returned an error: %s", err.Error())
 	}
-	if got, want := res.parent, fmt.Sprintf("projects/%s/locations/%s/caPools/%s", spec.Project, spec.Location, spec.CaPoolId); got != want {
+	if got, want := parent, fmt.Sprintf("projects/%s/locations/%s/caPools/%s", spec.Project, spec.Location, spec.CaPoolId); got != want {
 		t.Errorf("Wrong parent: %s != %s", got, want)
-	}
-	if got, want := res.namespace, namespace; got != want {
-		t.Errorf("Wrong namespace: %s != %s", got, want)
 	}
 }
 
-func TestNewSignerMissingPoolId(t *testing.T) {
+func TestBuildParentStringMissingPoolId(t *testing.T) {
 	spec := &v1beta1.GoogleCASIssuerSpec{
+		Project:  "test-project",
+		Location: "test-location",
 		CaPoolId: "",
 	}
-	ctx := context.Background()
-	namespace := "test"
-	client := fake.NewFakeClient()
-	_, err := newSignerNoSelftest(ctx, spec, client, namespace)
+	_, err := buildParentString(spec)
 	if err == nil {
 		t.Error("NewSigner didn't return an error")
 	}

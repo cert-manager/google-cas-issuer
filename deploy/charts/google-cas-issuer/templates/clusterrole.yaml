@@ -20,46 +20,35 @@ rules:
   - get
   - list
   - watch
+
 - apiGroups:
   - cas-issuer.jetstack.io
   resources:
   - googlecasclusterissuers
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - cas-issuer.jetstack.io
   resources:
   - googlecasclusterissuers/status
   verbs:
-  - get
   - patch
-  - update
 - apiGroups:
   - cas-issuer.jetstack.io
   resources:
   - googlecasissuers
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - cas-issuer.jetstack.io
   resources:
   - googlecasissuers/status
   verbs:
-  - get
   - patch
-  - update
 - apiGroups:
   - cert-manager.io
   resources:
@@ -67,16 +56,37 @@ rules:
   verbs:
   - get
   - list
-  - update
   - watch
 - apiGroups:
   - cert-manager.io
   resources:
   - certificaterequests/status
   verbs:
-  - get
   - patch
-  - update
+
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - certificates.k8s.io"
+  resources:
+  - certificatesigningrequests/status
+  verbs:
+  - patch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - signers
+  verbs:
+  - sign
+  resourceNames:
+  - googlecasclusterissuers.cas-issuer.jetstack.io/*
+
 ---
 {{- if .Values.app.approval.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
