@@ -67,7 +67,7 @@ jobs:
         id: deploy
         shell: bash
         run: |
-          VERSION=${GITHUB_REF##*/} \
+          export VERSION=${GITHUB_REF##*/}
           ./bin/helm template deploy/charts/google-cas-issuer --set image.tag=${VERSION#v} | tee google-cas-issuer-${VERSION}.yaml
       -
         name: create release
