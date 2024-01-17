@@ -1,6 +1,6 @@
 # cert-manager-google-cas-issuer
 
-![Version: v0.6.2](https://img.shields.io/badge/Version-v0.6.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.6.2](https://img.shields.io/badge/AppVersion-v0.6.2-informational?style=flat-square)
+![Version: v0.0.0](https://img.shields.io/badge/Version-v0.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.0.0](https://img.shields.io/badge/AppVersion-v0.0.0-informational?style=flat-square)
 
 A Helm chart for jetstack/google-cas-issuer
 
@@ -28,9 +28,11 @@ A Helm chart for jetstack/google-cas-issuer
 | app.metrics.port | int | `9402` | Port for exposing Prometheus metrics on 0.0.0.0 on path '/metrics'. |
 | commonLabels | object | `{}` | Labels to apply to all resources |
 | deploymentAnnotations | object | `{}` | Optional additional annotations to add to the google-cas-issuer Deployment |
+| image.digest | string | `nil` | Target image digest. Will override any tag if set. for example: digest: sha256:0e072dddd1f7f8fc8909a2ca6f65e76c5f0d2fcfb8be47935ae3457e8bbceb20 |
 | image.pullPolicy | string | `"IfNotPresent"` | Kubernetes imagePullPolicy on Deployment. |
+| image.registry | string | `nil` | Target image registry. Will be prepended to the target image repositry if set. |
 | image.repository | string | `"quay.io/jetstack/cert-manager-google-cas-issuer"` | Target image repository. |
-| image.tag | string | `"0.6.2"` | Target image version tag. |
+| image.tag | string | `nil` | Target image version tag. Defaults to the chart's appVersion. |
 | imagePullSecrets | list | `[]` | Optional secrets used for pulling the google-cas-issuer container image. |
 | nodeSelector | object | `{}` | Kubernetes node selector: node labels for pod assignment |
 | podAnnotations | object | `{}` | Optional additional annotations to add to the google-cas-issuer Pods |

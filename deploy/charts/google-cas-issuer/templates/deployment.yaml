@@ -37,12 +37,10 @@ spec:
       {{- end }}
       containers:
       - name: {{ include "cert-manager-google-cas-issuer.name" . }}
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        image: "{{ template "image" (tuple .Values.image $.Chart.AppVersion) }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - containerPort: {{ .Values.app.metrics.port }}
-        command: ["/google-cas-issuer"]
-
         args:
           - --enable-leader-election
           - --log-level={{.Values.app.logLevel}}
