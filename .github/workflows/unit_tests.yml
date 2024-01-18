@@ -2,12 +2,9 @@
 name: unit-tests
 on:
   push:
-    branches:
-      - main
-
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   run_unit_tests:
@@ -16,8 +13,9 @@ jobs:
       contents: read
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
+        fetch-depth: 0
         fetch-tags: true
 
     - id: go-version
@@ -28,5 +26,4 @@ jobs:
       with:
         go-version: ${{ steps.go-version.outputs.result }}
 
-    - name: Run unit tests
-      run: make test-unit
+    - run: make test-unit
