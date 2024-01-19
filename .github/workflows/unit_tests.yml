@@ -1,4 +1,4 @@
-# This workflow runs unpriviledged unit tests.
+# This workflow runs unprivileged unit tests.
 name: unit-tests
 on:
   push:
