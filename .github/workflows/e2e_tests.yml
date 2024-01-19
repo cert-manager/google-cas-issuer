@@ -1,12 +1,10 @@
-# This workflow runs priviledged e2e tests for trusted sources.
+# This workflow runs unpriviledged unit tests.
 name: e2e-tests
 on:
   push:
-    branches:
-      - main
-  schedule:
-    # At 03:23 on every 3rd day
-    - cron: "23 3 */3 * *"
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
   run_e2e_tests:
@@ -14,31 +12,34 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    steps:
-    - name: Install Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: '^1.19'
 
-    - name: Checkout
-      uses: actions/checkout@v3
+    steps:
+    - uses: actions/checkout@v4
       with:
+        fetch-depth: 0
         fetch-tags: true
 
-    - id: 'auth'
-      name: 'Authenticate to Google Cloud'
-      uses: 'google-github-actions/auth@v0'
+    - id: go-version
+      run: |
+        make print-go-version >> "$GITHUB_OUTPUT"
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version: ${{ steps.go-version.outputs.result }}
+
+    - id: auth
+      name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
       with:
         workload_identity_provider: 'projects/874174494201/locations/global/workloadIdentityPools/google-cas-issuer-e2e/providers/google-cas-issuer-e2e'
         service_account: 'google-cas-issuer-e2e@jetstack-cas.iam.gserviceaccount.com'
 
-    - name: Run e2e tests
-      run: make e2e
+    - run: make test-e2e
       env:
         TEST_GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: e2e-logs
-        path: _artifacts/e2e/logs
+        name: e2e-artifacts
+        path: _bin/artifacts
