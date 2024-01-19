@@ -1,4 +1,4 @@
-# This workflow runs unpriviledged unit tests.
+# This workflow runs privileged e2e tests. Due to the way these are set up, they will fail to run on forks.
 name: e2e-tests
 on:
   push:
