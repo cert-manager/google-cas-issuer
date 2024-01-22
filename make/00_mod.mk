@@ -22,7 +22,8 @@ kind_cluster_config := $(bin_dir)/scratch/kind_cluster.yaml
 
 build_names := manager
 
-go_manager_source_path := main.go
+go_manager_main_dir := .
+go_manager_mod_dir := .
 go_manager_ldflags := -X $(repo_name)/pkg/internal/version.AppVersion=$(VERSION) -X $(repo_name)/pkg/internal/version.GitCommit=$(GITCOMMIT)
 oci_manager_base_image_flavor := static
 oci_manager_image_name := quay.io/jetstack/cert-manager-google-cas-issuer
