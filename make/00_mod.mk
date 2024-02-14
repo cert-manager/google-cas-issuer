@@ -41,6 +41,8 @@ api_docs_branch := main
 helm_chart_source_dir := deploy/charts/google-cas-issuer
 helm_chart_name := cert-manager-google-cas-issuer
 helm_chart_version := $(VERSION)
+helm_labels_template_name := cert-manager-google-cas-issuer.labels
+
 define helm_values_mutation_function
 $(YQ) \
 	'( .image.repository = "$(oci_manager_image_name)" ) | \
