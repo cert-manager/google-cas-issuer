@@ -27,6 +27,8 @@ A Helm chart for jetstack/google-cas-issuer
 | app.logLevel | int | `1` | Verbosity of google-cas-issuer logging. |
 | app.metrics.port | int | `9402` | Port for exposing Prometheus metrics on 0.0.0.0 on path '/metrics'. |
 | commonLabels | object | `{}` | Labels to apply to all resources |
+| crds.enabled | bool | `true` |  |
+| crds.keep | bool | `true` |  |
 | deploymentAnnotations | object | `{}` | Optional additional annotations to add to the google-cas-issuer Deployment |
 | image.digest | string | `nil` | Target image digest. Will override any tag if set. for example: digest: sha256:0e072dddd1f7f8fc8909a2ca6f65e76c5f0d2fcfb8be47935ae3457e8bbceb20 |
 | image.pullPolicy | string | `"IfNotPresent"` | Kubernetes imagePullPolicy on Deployment. |
