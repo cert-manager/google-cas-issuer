@@ -115,21 +115,17 @@ priorityClassName: ""
 # -- Environment to be used by the google-cas-issuer pods.
 env: []
 
-# -- ConfigMap to be used for the google-cas-issuer pods.
+# -- ConfigMap to be used by the google-cas-issuer pods.
 configmap:
   enabled: false
   mountPath: /etc/configmap
 
-# -- Secret to be used for the google-cas-issuer pods.
+# -- Secret to be used by the google-cas-issuer pods.
 secret:
   enabled: false
   type: Opaque
   mountPath: /etc/secret
 
+# -- Volumes to attach to the google-cas-issuer pods. Use the `mount` key to specify volumeMount keys.
+# @default -- [{name: example, mount: {mountPath: /etc/configmap, readOnly: true}, configMap: {name: example}]
 volumes: []
-  # - name: example
-  #   mount:
-  #     mountPath: /etc/secret-volume
-  #     readOnly: true
-  #   secret:
-  #     secretName: example
