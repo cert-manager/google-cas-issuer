@@ -42,14 +42,34 @@ spec:
         ports:
         - containerPort: {{ .Values.app.metrics.port }}
         args:
-          - --enable-leader-election
-          - --log-level={{.Values.app.logLevel}}
-          - --metrics-addr=:{{.Values.app.metrics.port}}
+        - --enable-leader-election
+        - --log-level={{.Values.app.logLevel}}
+        - --metrics-addr=:{{.Values.app.metrics.port}}
         {{- with .Values.resources }}
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-
+        {{- with .Values.env }}
+        env:
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        volumeMounts:
+        {{- if .Values.configmap.enabled }}
+        - name: configmap
+          mountPath: {{ .Values.configmap.mountPath }}
+          readOnly: true
+        {{- end }}
+        {{- if .Values.secret.enabled }}
+        - name: secret
+          mountPath: {{ .Values.secret.mountPath }}
+          readOnly: true
+        {{- end }}
+        {{- range .Values.volumes }}
+        - name: {{ .name }}
+          {{- with .mount }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -61,4 +81,18 @@ spec:
       {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      {{- if .Values.configmap.enabled }}
+      - name: configmap
+        configMap:
+          name: {{ include "cert-manager-google-cas-issuer.name" . }}
+      {{- end }}
+      {{- if .Values.secret.enabled }}
+      - name: secret
+        secret:
+          secretName: {{ include "cert-manager-google-cas-issuer.name" . }}
+      {{- end }}
+      {{- range .Values.volumes }}
+      {{- toYaml (list (unset . "mount")) | nindent 6}}
       {{- end }}

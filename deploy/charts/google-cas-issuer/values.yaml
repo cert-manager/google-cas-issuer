@@ -111,3 +111,25 @@ tolerations: []
 
 # -- Optional priority class to be used for the google-cas-issuer pods.
 priorityClassName: ""
+
+# -- Environment to be used by the google-cas-issuer pods.
+env: []
+
+# -- ConfigMap to be used for the google-cas-issuer pods.
+configmap:
+  enabled: false
+  mountPath: /etc/configmap
+
+# -- Secret to be used for the google-cas-issuer pods.
+secret:
+  enabled: false
+  type: Opaque
+  mountPath: /etc/secret
+
+volumes: []
+  # - name: example
+  #   mount:
+  #     mountPath: /etc/secret-volume
+  #     readOnly: true
+  #   secret:
+  #     secretName: example
