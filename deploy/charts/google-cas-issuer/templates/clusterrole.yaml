@@ -63,6 +63,7 @@ rules:
   - certificaterequests/status
   verbs:
   - patch
+  - update
 
 - apiGroups:
   - certificates.k8s.io
