@@ -11,7 +11,7 @@ require (
 	github.com/onsi/gomega v1.31.1
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	google.golang.org/api v0.167.0
 	google.golang.org/genproto v0.0.0-20240205150955-31a09d347014
 	google.golang.org/protobuf v1.32.0
