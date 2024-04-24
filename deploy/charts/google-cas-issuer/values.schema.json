@@ -1,0 +1,280 @@
+{
+  "$defs": {
+    "helm-values": {
+      "additionalProperties": false,
+      "properties": {
+        "affinity": {
+          "$ref": "#/$defs/helm-values.affinity"
+        },
+        "app": {
+          "$ref": "#/$defs/helm-values.app"
+        },
+        "commonLabels": {
+          "$ref": "#/$defs/helm-values.commonLabels"
+        },
+        "crds": {
+          "$ref": "#/$defs/helm-values.crds"
+        },
+        "deploymentAnnotations": {
+          "$ref": "#/$defs/helm-values.deploymentAnnotations"
+        },
+        "global": {
+          "$ref": "#/$defs/helm-values.global"
+        },
+        "image": {
+          "$ref": "#/$defs/helm-values.image"
+        },
+        "imagePullSecrets": {
+          "$ref": "#/$defs/helm-values.imagePullSecrets"
+        },
+        "nodeSelector": {
+          "$ref": "#/$defs/helm-values.nodeSelector"
+        },
+        "podAnnotations": {
+          "$ref": "#/$defs/helm-values.podAnnotations"
+        },
+        "podLabels": {
+          "$ref": "#/$defs/helm-values.podLabels"
+        },
+        "priorityClassName": {
+          "$ref": "#/$defs/helm-values.priorityClassName"
+        },
+        "replicaCount": {
+          "$ref": "#/$defs/helm-values.replicaCount"
+        },
+        "resources": {
+          "$ref": "#/$defs/helm-values.resources"
+        },
+        "serviceAccount": {
+          "$ref": "#/$defs/helm-values.serviceAccount"
+        },
+        "tolerations": {
+          "$ref": "#/$defs/helm-values.tolerations"
+        }
+      },
+      "type": "object"
+    },
+    "helm-values.affinity": {
+      "default": {},
+      "description": "Kubernetes affinity: constraints for pod assignment\nFor example:\nnodeAffinity:\n  requiredDuringSchedulingIgnoredDuringExecution:\n    nodeSelectorTerms:\n    - matchExpressions:\n      - key: foo.bar.com/role\n        operator: In\n        values:\n        - master",
+      "type": "object"
+    },
+    "helm-values.app": {
+      "additionalProperties": false,
+      "properties": {
+        "approval": {
+          "$ref": "#/$defs/helm-values.app.approval"
+        },
+        "logLevel": {
+          "$ref": "#/$defs/helm-values.app.logLevel"
+        },
+        "metrics": {
+          "$ref": "#/$defs/helm-values.app.metrics"
+        }
+      },
+      "type": "object"
+    },
+    "helm-values.app.approval": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "$ref": "#/$defs/helm-values.app.approval.enabled"
+        },
+        "subjects": {
+          "$ref": "#/$defs/helm-values.app.approval.subjects"
+        }
+      },
+      "type": "object"
+    },
+    "helm-values.app.approval.enabled": {
+      "default": true,
+      "description": "enabled determines whether the ClusterRole and ClusterRoleBinding for approval is created. You will want to disable this if you are managing approval RBAC elsewhere from this chart, for example if you create them separately for all installed issuers.",
+      "type": "boolean"
+    },
+    "helm-values.app.approval.subjects": {
+      "items": {
+        "$ref": "#/$defs/helm-values.app.approval.subjects[0]"
+      },
+      "type": "array"
+    },
+    "helm-values.app.approval.subjects[0]": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/helm-values.app.approval.subjects[0].kind"
+        },
+        "name": {
+          "$ref": "#/$defs/helm-values.app.approval.subjects[0].name"
+        },
+        "namespace": {
+          "$ref": "#/$defs/helm-values.app.approval.subjects[0].namespace"
+        }
+      },
+      "type": "object"
+    },
+    "helm-values.app.approval.subjects[0].kind": {
+      "default": "ServiceAccount",
+      "type": "string"
+    },
+    "helm-values.app.approval.subjects[0].name": {
+      "default": "cert-manager",
+      "type": "string"
+    },
+    "helm-values.app.approval.subjects[0].namespace": {
+      "default": "cert-manager",
+      "type": "string"
+    },
+    "helm-values.app.logLevel": {
+      "default": 1,
+      "description": "Verbosity of google-cas-issuer logging.",
+      "type": "number"
+    },
+    "helm-values.app.metrics": {
+      "additionalProperties": false,
+      "properties": {
+        "port": {
+          "$ref": "#/$defs/helm-values.app.metrics.port"
+        }
+      },
+      "type": "object"
+    },
+    "helm-values.app.metrics.port": {
+      "default": 9402,
+      "description": "Port for exposing Prometheus metrics on 0.0.0.0 on path '/metrics'.",
+      "type": "number"
+    },
+    "helm-values.commonLabels": {
+      "default": {},
+      "description": "Labels to apply to all resources",
+      "type": "object"
+    },
+    "helm-values.crds": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "$ref": "#/$defs/helm-values.crds.enabled"
+        },
+        "keep": {
+          "$ref": "#/$defs/helm-values.crds.keep"
+        }
+      },
+      "type": "object"
+    },
+    "helm-values.crds.enabled": {
+      "default": true,
+      "description": "This option decides if the CRDs should be installed as part of the Helm installation.",
+      "type": "boolean"
+    },
+    "helm-values.crds.keep": {
+      "default": true,
+      "description": "This option makes it so that the \"helm.sh/resource-policy\": keep annotation is added to the CRD. This will prevent Helm from uninstalling the CRD when the Helm release is uninstalled. WARNING: when the CRDs are removed, all cert-manager custom resources\n(Certificates, Issuers, ...) will be removed too by the garbage collector.",
+      "type": "boolean"
+    },
+    "helm-values.deploymentAnnotations": {
+      "default": {},
+      "description": "Optional additional annotations to add to the google-cas-issuer Deployment",
+      "type": "object"
+    },
+    "helm-values.global": {
+      "description": "Global values shared across all (sub)charts"
+    },
+    "helm-values.image": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/helm-values.image.digest"
+        },
+        "pullPolicy": {
+          "$ref": "#/$defs/helm-values.image.pullPolicy"
+        },
+        "registry": {
+          "$ref": "#/$defs/helm-values.image.registry"
+        },
+        "repository": {
+          "$ref": "#/$defs/helm-values.image.repository"
+        },
+        "tag": {
+          "$ref": "#/$defs/helm-values.image.tag"
+        }
+      },
+      "type": "object"
+    },
+    "helm-values.image.digest": {
+      "description": "Target image digest. Will override any tag if set. for example:\ndigest: sha256:0e072dddd1f7f8fc8909a2ca6f65e76c5f0d2fcfb8be47935ae3457e8bbceb20"
+    },
+    "helm-values.image.pullPolicy": {
+      "default": "IfNotPresent",
+      "description": "Kubernetes imagePullPolicy on Deployment.",
+      "type": "string"
+    },
+    "helm-values.image.registry": {
+      "description": "Target image registry. Will be prepended to the target image repositry if set."
+    },
+    "helm-values.image.repository": {
+      "default": "quay.io/jetstack/cert-manager-google-cas-issuer",
+      "description": "Target image repository.",
+      "type": "string"
+    },
+    "helm-values.image.tag": {
+      "description": "Target image version tag. Defaults to the chart's appVersion."
+    },
+    "helm-values.imagePullSecrets": {
+      "default": [],
+      "description": "Optional secrets used for pulling the google-cas-issuer container image.",
+      "items": {},
+      "type": "array"
+    },
+    "helm-values.nodeSelector": {
+      "default": {},
+      "description": "Kubernetes node selector: node labels for pod assignment\nFor example:\nkubernetes.io/os: linux",
+      "type": "object"
+    },
+    "helm-values.podAnnotations": {
+      "default": {},
+      "description": "Optional additional annotations to add to the google-cas-issuer Pods",
+      "type": "object"
+    },
+    "helm-values.podLabels": {
+      "default": {},
+      "description": "Optional additional labels to add to the google-cas-issuer Pods",
+      "type": "object"
+    },
+    "helm-values.priorityClassName": {
+      "default": "",
+      "description": "Optional priority class to be used for the google-cas-issuer pods.",
+      "type": "string"
+    },
+    "helm-values.replicaCount": {
+      "default": 1,
+      "description": "Number of replicas of google-cas-issuer to run.",
+      "type": "number"
+    },
+    "helm-values.resources": {
+      "default": {},
+      "description": "Kubernetes pod resource requests/limits for google-cas-issuer.\nFor example:\nlimits:\n  cpu: 100m\n  memory: 128Mi\nrequests:\n  cpu: 100m\n  memory: 128Mi",
+      "type": "object"
+    },
+    "helm-values.serviceAccount": {
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "$ref": "#/$defs/helm-values.serviceAccount.annotations"
+        }
+      },
+      "type": "object"
+    },
+    "helm-values.serviceAccount.annotations": {
+      "default": {},
+      "description": "Optional annotations to add to the service account",
+      "type": "object"
+    },
+    "helm-values.tolerations": {
+      "default": [],
+      "description": "Kubernetes pod tolerations for google-cas-issuer\nFor example:\n - operator: \"Exists\"",
+      "items": {},
+      "type": "array"
+    }
+  },
+  "$ref": "#/$defs/helm-values",
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
