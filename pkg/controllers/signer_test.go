@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
+	"google.golang.org/api/privateca/v1"
 
 	"github.com/jetstack/google-cas-issuer/api/v1beta1"
 )

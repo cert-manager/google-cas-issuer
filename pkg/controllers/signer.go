@@ -10,6 +10,7 @@ import (
 	"time"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1"
+	casapi "cloud.google.com/go/security/privateca/apiv1/privatecapb"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	issuerapi "github.com/cert-manager/issuer-lib/api/v1alpha1"
 	controllers "github.com/cert-manager/issuer-lib/controllers"
@@ -17,7 +18,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
 	"google.golang.org/api/option"
-	casapi "google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
