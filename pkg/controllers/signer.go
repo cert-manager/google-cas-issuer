@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"strings"
+	"regexp"
 	"time"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1"
@@ -194,25 +194,44 @@ func (c *GoogleCAS) createCasClient(ctx context.Context, resourceNamespace strin
 // Additionally, for each PEM block, all whitespace is trimmed and a single new line is
 // appended, in case software consuming the resulting secret writes the PEM blocks
 // directly into a config file without parsing them.
+//
+// Unfortunatly, Google CAS API can send multiple certs within the same pemCertificateChain
+// element, so we (Arkea) have to parse and re-order this
+
 func extractCertAndCA(resp *casapi.Certificate) (cert []byte, ca []byte, err error) {
 	if resp == nil {
 		return nil, nil, errors.New("extractCertAndCA: certificate response is nil")
 	}
-	certBuf := &bytes.Buffer{}
 
-	// Write the leaf to the buffer
-	certBuf.WriteString(strings.TrimSpace(resp.PemCertificate))
-	certBuf.WriteRune('\n')
+	certBuf := &bytes.Buffer{}
+	var certs []string
+
+	re := regexp.MustCompile(`(?sU)-{5}BEGIN CERTIFICATE(?:.+)END CERTIFICATE-{5}`)
+
+	// parse the certificate and store it in certs slice
+	match := re.FindString(resp.PemCertificate)
+	if match == "" {
+		return nil, nil, errors.New("extractCertAndCA: leaf certificate is not properly parsed")
+	}
+	certs = append(certs, match)
 
 	// Write any remaining certificates except for the root-most one
-	for _, c := range resp.PemCertificateChain[:len(resp.PemCertificateChain)-1] {
-		certBuf.WriteString(strings.TrimSpace(c))
+	for _, casCert := range resp.PemCertificateChain {
+		match := re.FindAllString(casCert, -1)
+		if len(match) == 0 {
+			return nil, nil, errors.New("extractCertAndCA: the certificate chain is not properly parsed")
+		}
+		// Append all matched certs from the certificate chain to the certs slice
+		certs = append(certs, match...)
+	}
+
+	for _, cert := range certs[:len(certs)-1] {
+		// For all the certificate chain, but the most root one (CA cert)
+		// We write it to the cert buffer
+		certBuf.WriteString(cert)
 		certBuf.WriteRune('\n')
 	}
 
 	// Return the root-most certificate in the CA field.
-	return certBuf.Bytes(), []byte(
-		strings.TrimSpace(
-			resp.PemCertificateChain[len(resp.PemCertificateChain)-1],
-		) + "\n"), nil
+	return certBuf.Bytes(), []byte(certs[len(certs)-1] + "\n"), nil
 }
