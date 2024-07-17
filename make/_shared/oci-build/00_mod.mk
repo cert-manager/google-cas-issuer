@@ -16,11 +16,11 @@ oci_platforms ?= linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le
 
 # Use distroless as minimal base image to package the manager binary
 # To get latest SHA run "crane digest quay.io/jetstack/base-static:latest"
-base_image_static := quay.io/jetstack/base-static@sha256:ba3cff0a4cacc5ae564e04c1f645000e8c9234c0f4b09534be1dee7874a42141
+base_image_static := quay.io/jetstack/base-static@sha256:262e3020adb3b09ddbf9cd8fe672330451a556c8e7024142fa205c8876c3fd75
 
 # Use custom apko-built image as minimal base image to package the manager binary
 # To get latest SHA run "crane digest quay.io/jetstack/base-static-csi:latest"
-base_image_csi-static := quay.io/jetstack/base-static-csi@sha256:54bacd13cccc385ef66730dbc7eb13bdb6a9ff8853e7f551d025ccb0e8c6bf83
+base_image_csi-static := quay.io/jetstack/base-static-csi@sha256:f776795838d73f9836b134f688b4c827fcd7ed22f46d3cefcb9f57d668388fef
 
 # Utility functions
 fatal_if_undefined = $(if $(findstring undefined,$(origin $1)),$(error $1 is not set))
