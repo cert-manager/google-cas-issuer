@@ -4,6 +4,9 @@ This repository contains an [external Issuer](https://cert-manager.io/docs/contr
 for cert-manager that issues certificates using [Google Cloud
 Certificate Authority Service (CAS)](https://cloud.google.com/certificate-authority-service/), using managed private CAs to issue certificates.
 
+> [!IMPORTANT]  
+> Starting from version v0.9.0, the docker image for the Google CAS Issuer controller is tagged with a v-prefix (v0.9.0 instead of 0.9.0). The helm chart for v0.9.0 will also refer to this image tag. Make sure to update your image replication rules if necessary.
+
 ## Getting started
 
 ### Prerequisites
