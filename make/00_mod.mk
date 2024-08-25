@@ -27,8 +27,7 @@ go_manager_mod_dir := .
 go_manager_ldflags := -X $(repo_name)/pkg/internal/version.AppVersion=$(VERSION) -X $(repo_name)/pkg/internal/version.GitCommit=$(GITCOMMIT)
 oci_manager_base_image_flavor := static
 oci_manager_image_name := quay.io/jetstack/cert-manager-google-cas-issuer
-# google-cas-issuer for some reason doesn't use the v prefix in its tags
-oci_manager_image_tag := $(VERSION:v%=%)
+oci_manager_image_tag := $(VERSION)
 oci_manager_image_name_development := cert-manager.local/cert-manager-google-cas-issuer
 
 deploy_name := google-cas-issuer
