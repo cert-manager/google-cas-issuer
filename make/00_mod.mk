@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO: remove once we add back the boilerplate module
-go_header_file := $(CURDIR)/make/config/boilerplate.go.txt
-
 repo_name := github.com/jetstack/google-cas-issuer
 
 kind_cluster_name := google-cas-issuer
