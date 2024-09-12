@@ -33,9 +33,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
-	"github.com/jetstack/google-cas-issuer/test/e2e/framework"
-	"github.com/jetstack/google-cas-issuer/test/e2e/framework/config"
-	"github.com/jetstack/google-cas-issuer/test/e2e/util"
+	"github.com/cert-manager/google-cas-issuer/test/e2e/framework"
+	"github.com/cert-manager/google-cas-issuer/test/e2e/framework/config"
+	"github.com/cert-manager/google-cas-issuer/test/e2e/util"
 )
 
 const (

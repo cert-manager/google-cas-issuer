@@ -17,6 +17,6 @@ limitations under the License.
 package suite
 
 import (
-	_ "github.com/jetstack/google-cas-issuer/test/e2e/suite/issuers"
-	_ "github.com/jetstack/google-cas-issuer/test/e2e/suite/validation"
+	_ "github.com/cert-manager/google-cas-issuer/test/e2e/suite/issuers"
+	_ "github.com/cert-manager/google-cas-issuer/test/e2e/suite/validation"
 )

@@ -24,7 +24,7 @@ import (
 	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	_ "github.com/jetstack/google-cas-issuer/test/e2e/suite"
+	_ "github.com/cert-manager/google-cas-issuer/test/e2e/suite"
 )
 
 func init() {

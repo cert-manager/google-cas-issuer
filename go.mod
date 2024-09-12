@@ -1,4 +1,4 @@
-module github.com/jetstack/google-cas-issuer
+module github.com/cert-manager/google-cas-issuer
 
 go 1.22.0
 
