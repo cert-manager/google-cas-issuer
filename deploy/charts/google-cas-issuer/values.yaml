@@ -114,3 +114,7 @@ tolerations: []
 
 # Optional priority class to be used for the google-cas-issuer pods.
 priorityClassName: ""
+
+# Override the "cert-manager-google-cas-issuer.name" value.
+# +docs:property
+# nameOverride: "my-google-cas-issuer"

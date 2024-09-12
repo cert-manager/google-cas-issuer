@@ -27,6 +27,9 @@
         "imagePullSecrets": {
           "$ref": "#/$defs/helm-values.imagePullSecrets"
         },
+        "nameOverride": {
+          "$ref": "#/$defs/helm-values.nameOverride"
+        },
         "nodeSelector": {
           "$ref": "#/$defs/helm-values.nodeSelector"
         },
@@ -223,6 +226,10 @@
       "description": "Optional secrets used for pulling the google-cas-issuer container image.",
       "items": {},
       "type": "array"
+    },
+    "helm-values.nameOverride": {
+      "description": "Override the \"cert-manager-google-cas-issuer.name\" value.",
+      "type": "string"
     },
     "helm-values.nodeSelector": {
       "default": {},

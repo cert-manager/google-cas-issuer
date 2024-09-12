@@ -1,14 +1,62 @@
-# This workflow runs privileged e2e tests. Due to the way these are set up, they will fail to run on forks.
-name: e2e-tests
+name: tests
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
-  run_e2e_tests:
+  pull-google-cas-issuer-verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: go-version
+        run: |
+          make print-go-version >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ steps.go-version.outputs.result }}
+
+      - uses: actions/cache@v4
+        with:
+          path: _bin/downloaded
+          key: downloaded-${{ runner.os }}-${{ hashFiles('klone.yaml') }}-verify
+
+      - run: make -j verify
+
+  pull-google-cas-issuer-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        fetch-tags: true
+
+    - id: go-version
+      run: |
+        make print-go-version >> "$GITHUB_OUTPUT"
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version: ${{ steps.go-version.outputs.result }}
+
+    - run: make test-unit
+
+  pull-google-cas-issuer-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     permissions:
       contents: read
       id-token: write

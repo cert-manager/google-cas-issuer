@@ -6,6 +6,10 @@
 
 <!-- AUTO-GENERATED -->
 
+#### **nameOverride** ~ `string`
+
+Override the "cert-manager-google-cas-issuer.name" value.
+
 #### **crds.enabled** ~ `bool`
 > Default value:
 > ```yaml
