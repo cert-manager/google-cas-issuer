@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-repo_name := github.com/jetstack/google-cas-issuer
+repo_name := github.com/cert-manager/google-cas-issuer
 
 kind_cluster_name := google-cas-issuer
 kind_cluster_config := $(bin_dir)/scratch/kind_cluster.yaml

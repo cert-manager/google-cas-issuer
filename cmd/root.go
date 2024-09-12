@@ -31,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	issuersv1beta1 "github.com/jetstack/google-cas-issuer/api/v1beta1"
-	controllers "github.com/jetstack/google-cas-issuer/pkg/controllers"
+	issuersv1beta1 "github.com/cert-manager/google-cas-issuer/api/v1beta1"
+	controllers "github.com/cert-manager/google-cas-issuer/pkg/controllers"
 )
 
 var (
