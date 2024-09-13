@@ -3,7 +3,7 @@ module github.com/cert-manager/google-cas-issuer
 go 1.22.0
 
 require (
-	cloud.google.com/go/security v1.18.0
+	cloud.google.com/go/security v1.18.1
 	github.com/cert-manager/cert-manager v1.15.3
 	github.com/cert-manager/issuer-lib v0.8.0
 	github.com/google/uuid v1.6.0
@@ -115,7 +115,7 @@ require (
 	golang.org/x/time v0.6.0 // indirect
 	golang.org/x/tools v0.24.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240827150818-7e3bb234dfed // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/grpc v1.66.1 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
