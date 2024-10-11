@@ -117,7 +117,7 @@ tools += goreleaser=v1.26.2
 # https://pkg.go.dev/github.com/anchore/syft/cmd/syft?tab=versions
 tools += syft=v0.100.0
 # https://github.com/cert-manager/helm-tool
-tools += helm-tool=v0.5.1
+tools += helm-tool=v0.5.3
 # https://github.com/cert-manager/cmctl
 tools += cmctl=v2.1.0
 # https://pkg.go.dev/github.com/cert-manager/release/cmd/cmrel?tab=versions
@@ -159,7 +159,7 @@ ADDITIONAL_TOOLS ?=
 tools += $(ADDITIONAL_TOOLS)
 
 # https://go.dev/dl/
-VENDORED_GO_VERSION := 1.23.1
+VENDORED_GO_VERSION := 1.23.2
 
 # Print the go version which can be used in GH actions
 .PHONY: print-go-version
@@ -183,7 +183,11 @@ CURL := curl --silent --show-error --fail --location --retry 10 --retry-connrefu
 # can run the "link $(DOWNLOAD_DIR)/tools/xxx@$(XXX_VERSION)_$(HOST_OS)_$(HOST_ARCH)
 # to $(bin_dir)/tools/xxx" operation simultaneously without issues (both
 # will perform the action and the second time the link will be overwritten).
-LN := ln -fs
+#
+# -s = Create a symbolic link
+# -f = Force the creation of the link (replace existing links)
+# -n = If destination already exists, replace it, don't use it as a directory to create a new link inside
+LN := ln -fsn
 
 upper_map := a:A b:B c:C d:D e:E f:F g:G h:H i:I j:J k:K l:L m:M n:N o:O p:P q:Q r:R s:S t:T u:U v:V w:W x:X y:Y z:Z
 uc = $(strip \
@@ -374,10 +378,10 @@ $(call for_each_kv,go_dependency,$(go_dependencies))
 # File downloads #
 ##################
 
-go_linux_amd64_SHA256SUM=49bbb517cfa9eee677e1e7897f7cf9cfdbcf49e05f61984a2789136de359f9bd
-go_linux_arm64_SHA256SUM=faec7f7f8ae53fda0f3d408f52182d942cc89ef5b7d3d9f23ff117437d4b2d2f
-go_darwin_amd64_SHA256SUM=488d9e4ca3e3ed513ee4edd91bef3a2360c65fa6d6be59cf79640bf840130a58
-go_darwin_arm64_SHA256SUM=e223795ca340e285a760a6446ce57a74500b30e57469a4109961d36184d3c05a
+go_linux_amd64_SHA256SUM=542d3c1705f1c6a1c5a80d5dc62e2e45171af291e755d591c5e6531ef63b454e
+go_linux_arm64_SHA256SUM=f626cdd92fc21a88b31c1251f419c17782933a42903db87a174ce74eeecc66a9
+go_darwin_amd64_SHA256SUM=445c0ef19d8692283f4c3a92052cc0568f5a048f4e546105f58e991d4aea54f5
+go_darwin_arm64_SHA256SUM=d87031194fe3e01abdcaf3c7302148ade97a7add6eac3fec26765bcb3207b80f
 
 .PRECIOUS: $(DOWNLOAD_DIR)/tools/go@$(VENDORED_GO_VERSION)_$(HOST_OS)_$(HOST_ARCH).tar.gz
 $(DOWNLOAD_DIR)/tools/go@$(VENDORED_GO_VERSION)_$(HOST_OS)_$(HOST_ARCH).tar.gz: | $(DOWNLOAD_DIR)/tools
