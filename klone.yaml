@@ -7,11 +7,6 @@
 
 targets:
   make/_shared:
-    - folder_name: api-docs
-      repo_url: https://github.com/cert-manager/makefile-modules.git
-      repo_ref: main
-      repo_hash: f8e889062c304340007ecddc9b089ab8ded26633
-      repo_path: modules/api-docs
     - folder_name: boilerplate
       repo_url: https://github.com/cert-manager/makefile-modules.git
       repo_ref: main
