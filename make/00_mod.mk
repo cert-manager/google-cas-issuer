@@ -30,10 +30,6 @@ oci_manager_image_name_development := cert-manager.local/cert-manager-google-cas
 deploy_name := google-cas-issuer
 deploy_namespace := cert-manager
 
-api_docs_outfile := docs/api/api.md
-api_docs_package := $(repo_name)/api/v1beta1
-api_docs_branch := main
-
 helm_chart_source_dir := deploy/charts/google-cas-issuer
 helm_chart_name := cert-manager-google-cas-issuer
 helm_chart_version := $(VERSION)
