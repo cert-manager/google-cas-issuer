@@ -18,6 +18,11 @@
         "deploymentAnnotations": {
           "$ref": "#/$defs/helm-values.deploymentAnnotations"
         },
+        "enabled": {
+          "default": true,
+          "description": "Controls whether this Helm chart should deploy resources.",
+          "type": "boolean"
+        },
         "global": {
           "$ref": "#/$defs/helm-values.global"
         },
@@ -264,6 +269,16 @@
     "helm-values.serviceAccount": {
       "additionalProperties": false,
       "properties": {
+        "create": {
+          "default": true,
+          "description": "Specifies whether a service account should be created.",
+          "type": "boolean"
+        },
+        "name": {
+          "default": "",
+          "description": "The name of the service account to use if create is false.",
+          "type": "string"
+        },
         "annotations": {
           "$ref": "#/$defs/helm-values.serviceAccount.annotations"
         }

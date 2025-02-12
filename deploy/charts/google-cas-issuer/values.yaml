@@ -40,9 +40,12 @@ imagePullSecrets: []
 commonLabels: {}
 
 serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # The name of the service account to use if create is false
+  name: "svc-google-cas"
   # Optional annotations to add to the service account
-  annotations:
-    iam.gke.io/gcp-service-account: svc-google-cas@{{ .Values.global.projectID }}.iam.gserviceaccount.com
+  annotations: {}
 
 app:
   # Verbosity of google-cas-issuer logging.

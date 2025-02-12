@@ -44,7 +44,7 @@ See https://github.com/cert-manager/cert-manager/issues/6329 for a list of linke
 {{- end }}
 
 {{/*
-Create the name of the service account to use
+Render the service account name
 */}}
 {{- define "cert-manager-google-cas-issuer.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
