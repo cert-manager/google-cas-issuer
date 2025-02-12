@@ -1,3 +1,6 @@
+global:
+  projectID: "test"
+
 crds:
   # This option decides if the CRDs should be installed
   # as part of the Helm installation.
@@ -38,7 +41,8 @@ commonLabels: {}
 
 serviceAccount:
   # Optional annotations to add to the service account
-  annotations: {}
+  annotations:
+    iam.gke.io/gcp-service-account: svc-google-cas@{{ .Values.global.projectID }}.iam.gserviceaccount.com
 
 app:
   # Verbosity of google-cas-issuer logging.
