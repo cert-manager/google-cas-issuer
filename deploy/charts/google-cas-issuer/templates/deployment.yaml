@@ -27,6 +27,10 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+
     {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -49,6 +53,11 @@ spec:
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities: { drop: ["ALL"] }
+          readOnlyRootFilesystem: true
 
       {{- with .Values.nodeSelector }}
       nodeSelector:
