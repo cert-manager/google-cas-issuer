@@ -56,8 +56,8 @@ test-e2e: test-e2e-deps | kind-cluster $(NEEDS_GINKGO)
 	$(GINKGO) \
 		--output-dir=$(ARTIFACTS) \
 		--junit-report=junit-go-e2e.xml \
+		--ldflags "$(go_manager_ldflags)" \
 		./test/e2e/ \
-		-ldflags $(go_manager_ldflags) \
 		-- \
 		--kubeconfig $(CURDIR)/$(kind_kubeconfig) \
 		--project jetstack-cas --location europe-west1 --capoolid issuer-e2e
