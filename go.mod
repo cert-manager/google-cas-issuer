@@ -1,7 +1,6 @@
 module github.com/cert-manager/google-cas-issuer
 
-go 1.23.0
-toolchain go1.24.1
+go 1.24.0
 
 require (
 	cloud.google.com/go/security v1.18.5
