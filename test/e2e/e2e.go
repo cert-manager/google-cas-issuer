@@ -21,7 +21,6 @@ import (
 	"flag"
 	"os"
 
-	. "github.com/onsi/ginkgo/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -30,6 +29,8 @@ import (
 
 	"github.com/cert-manager/google-cas-issuer/test/e2e/framework/config"
 	"github.com/cert-manager/google-cas-issuer/test/e2e/util"
+
+	. "github.com/onsi/ginkgo/v2"
 )
 
 var (

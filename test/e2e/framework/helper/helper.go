@@ -210,7 +210,7 @@ func (h *Helper) VerifyCMCertificate(namespace, name string) error {
 	}
 
 	// each cert in a chain must certify the one preceding it
-	for i := 0; i < len(cert.Certificate)-1; i++ {
+	for i := range len(cert.Certificate) - 1 {
 		certifier, err := x509.ParseCertificate(cert.Certificate[i+1])
 		if err != nil {
 			return fmt.Errorf("tls.crt in secret %s/%s has invalid cert at %d in chain: %w", certificate.ObjectMeta.Namespace, certificate.Spec.SecretName, i+1, err)
