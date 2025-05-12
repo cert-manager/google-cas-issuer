@@ -18,8 +18,17 @@ endif
 
 ##########################################
 
-export DOWNLOAD_DIR ?= $(CURDIR)/$(bin_dir)/downloaded
-export GOVENDOR_DIR ?= $(CURDIR)/$(bin_dir)/go_vendor
+default_shared_dir := $(CURDIR)/$(bin_dir)
+# If $(HOME) is set and $(CI) is not, use the $(HOME)/.cache
+# folder to store downloaded binaries.
+ifneq ($(shell printenv HOME),)
+ifeq ($(shell printenv CI),)
+default_shared_dir := $(HOME)/.cache/makefile-modules
+endif
+endif
+
+export DOWNLOAD_DIR ?= $(default_shared_dir)/downloaded
+export GOVENDOR_DIR ?= $(default_shared_dir)/go_vendor
 
 $(bin_dir)/tools $(DOWNLOAD_DIR)/tools:
 	@mkdir -p $@
@@ -84,7 +93,7 @@ tools += controller-gen=v0.17.3
 # https://pkg.go.dev/golang.org/x/tools/cmd/goimports?tab=versions
 tools += goimports=v0.31.0
 # https://pkg.go.dev/github.com/google/go-licenses/v2?tab=versions
-tools += go-licenses=v2.0.0-alpha.1
+tools += go-licenses=9c778fc0cb52740485f53cc439b1f3c9578a1830
 # https://pkg.go.dev/gotest.tools/gotestsum?tab=versions
 tools += gotestsum=v1.12.1
 # https://pkg.go.dev/sigs.k8s.io/kustomize/kustomize/v4?tab=versions
@@ -118,12 +127,14 @@ tools += goreleaser=v1.26.2
 tools += syft=v1.22.0
 # https://github.com/cert-manager/helm-tool/releases
 tools += helm-tool=v0.5.3
+# https://github.com/cert-manager/image-tool/releases
+tools += image-tool=v0.0.2
 # https://github.com/cert-manager/cmctl/releases
 tools += cmctl=v2.1.1
 # https://pkg.go.dev/github.com/cert-manager/release/cmd/cmrel?tab=versions
 tools += cmrel=e3cbe5171488deda000145003e22567bdce622ea
-# https://pkg.go.dev/github.com/golangci/golangci-lint/cmd/golangci-lint?tab=versions
-tools += golangci-lint=v1.64.8
+# https://pkg.go.dev/github.com/golangci/golangci-lint/v2/cmd/golangci-lint?tab=versions
+tools += golangci-lint=v2.1.2
 # https://pkg.go.dev/golang.org/x/vuln?tab=versions
 tools += govulncheck=v1.1.4
 # https://pkg.go.dev/github.com/operator-framework/operator-sdk/cmd/operator-sdk?tab=versions
@@ -136,6 +147,8 @@ tools += preflight=1.12.1
 tools += gci=v0.13.6
 # https://github.com/google/yamlfmt/releases
 tools += yamlfmt=v0.16.0
+# https://github.com/yannh/kubeconform/releases
+tools += kubeconform=v0.6.7
 
 # https://pkg.go.dev/k8s.io/code-generator/cmd?tab=versions
 K8S_CODEGEN_VERSION := v0.32.3
@@ -159,7 +172,7 @@ ADDITIONAL_TOOLS ?=
 tools += $(ADDITIONAL_TOOLS)
 
 # https://go.dev/dl/
-VENDORED_GO_VERSION := 1.24.2
+VENDORED_GO_VERSION := 1.24.3
 
 # Print the go version which can be used in GH actions
 .PHONY: print-go-version
@@ -312,7 +325,9 @@ go_dependencies :=
 go_dependencies += ginkgo=github.com/onsi/ginkgo/v2/ginkgo
 go_dependencies += controller-gen=sigs.k8s.io/controller-tools/cmd/controller-gen
 go_dependencies += goimports=golang.org/x/tools/cmd/goimports
-go_dependencies += go-licenses=github.com/google/go-licenses/v2
+# switch back to github.com/google/go-licenses once
+# https://github.com/google/go-licenses/pull/327 is merged.
+go_dependencies += go-licenses=github.com/inteon/go-licenses/v2
 go_dependencies += gotestsum=gotest.tools/gotestsum
 go_dependencies += kustomize=sigs.k8s.io/kustomize/kustomize/v4
 go_dependencies += gojq=github.com/itchyny/gojq/cmd/gojq
@@ -334,14 +349,16 @@ go_dependencies += defaulter-gen=k8s.io/code-generator/cmd/defaulter-gen
 go_dependencies += conversion-gen=k8s.io/code-generator/cmd/conversion-gen
 go_dependencies += openapi-gen=k8s.io/kube-openapi/cmd/openapi-gen
 go_dependencies += helm-tool=github.com/cert-manager/helm-tool
+go_dependencies += image-tool=github.com/cert-manager/image-tool
 go_dependencies += cmctl=github.com/cert-manager/cmctl/v2
 go_dependencies += cmrel=github.com/cert-manager/release/cmd/cmrel
-go_dependencies += golangci-lint=github.com/golangci/golangci-lint/cmd/golangci-lint
+go_dependencies += golangci-lint=github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 go_dependencies += govulncheck=golang.org/x/vuln/cmd/govulncheck
 go_dependencies += operator-sdk=github.com/operator-framework/operator-sdk/cmd/operator-sdk
 go_dependencies += gh=github.com/cli/cli/v2/cmd/gh
 go_dependencies += gci=github.com/daixiang0/gci
 go_dependencies += yamlfmt=github.com/google/yamlfmt/cmd/yamlfmt
+go_dependencies += kubeconform=github.com/yannh/kubeconform/cmd/kubeconform
 
 #################
 # go build tags #
@@ -378,10 +395,10 @@ $(call for_each_kv,go_dependency,$(go_dependencies))
 # File downloads #
 ##################
 
-go_linux_amd64_SHA256SUM=68097bd680839cbc9d464a0edce4f7c333975e27a90246890e9f1078c7e702ad
-go_linux_arm64_SHA256SUM=756274ea4b68fa5535eb9fe2559889287d725a8da63c6aae4d5f23778c229f4b
-go_darwin_amd64_SHA256SUM=238d9c065d09ff6af229d2e3b8b5e85e688318d69f4006fb85a96e41c216ea83
-go_darwin_arm64_SHA256SUM=b70f8b3c5b4ccb0ad4ffa5ee91cd38075df20fdbd953a1daedd47f50fbcff47a
+go_linux_amd64_SHA256SUM=3333f6ea53afa971e9078895eaa4ac7204a8c6b5c68c10e6bc9a33e8e391bdd8
+go_linux_arm64_SHA256SUM=a463cb59382bd7ae7d8f4c68846e73c4d589f223c589ac76871b66811ded7836
+go_darwin_amd64_SHA256SUM=13e6fe3fcf65689d77d40e633de1e31c6febbdbcb846eb05fc2434ed2213e92b
+go_darwin_arm64_SHA256SUM=64a3fa22142f627e78fac3018ce3d4aeace68b743eff0afda8aae0411df5e4fb
 
 .PRECIOUS: $(DOWNLOAD_DIR)/tools/go@$(VENDORED_GO_VERSION)_$(HOST_OS)_$(HOST_ARCH).tar.gz
 $(DOWNLOAD_DIR)/tools/go@$(VENDORED_GO_VERSION)_$(HOST_OS)_$(HOST_ARCH).tar.gz: | $(DOWNLOAD_DIR)/tools
@@ -635,7 +652,7 @@ $(DOWNLOAD_DIR)/tools/preflight@$(PREFLIGHT_VERSION)_linux_$(HOST_ARCH): | $(DOW
 missing=$(shell (command -v curl >/dev/null || echo curl) \
              && (command -v sha256sum >/dev/null || command -v shasum >/dev/null || echo sha256sum) \
              && (command -v git >/dev/null || echo git) \
-             && (command -v rsync >/dev/null || echo rsync) \
+             && (command -v xargs >/dev/null || echo xargs) \
              && (command -v bash >/dev/null || echo bash))
 ifneq ($(missing),)
 $(error Missing required tools: $(missing))
