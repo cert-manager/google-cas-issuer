@@ -24,7 +24,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,6 +32,8 @@ import (
 
 	issuersv1beta1 "github.com/cert-manager/google-cas-issuer/api/v1beta1"
 	controllers "github.com/cert-manager/google-cas-issuer/pkg/controllers"
+
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 var (
