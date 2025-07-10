@@ -3,8 +3,8 @@ module github.com/cert-manager/google-cas-issuer
 go 1.24.0
 
 require (
-	cloud.google.com/go/security v1.18.5
-	github.com/cert-manager/cert-manager v1.18.0
+	cloud.google.com/go/security v1.19.0
+	github.com/cert-manager/cert-manager v1.18.2
 	github.com/cert-manager/issuer-lib v0.8.0
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.23.4
@@ -12,13 +12,13 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
-	google.golang.org/api v0.237.0
+	google.golang.org/api v0.239.0
 	google.golang.org/genproto v0.0.0-20250505200425-f936aa4a68b2
 	google.golang.org/protobuf v1.36.6
-	k8s.io/api v0.33.1
-	k8s.io/apimachinery v0.33.1
-	k8s.io/cli-runtime v0.33.1
-	k8s.io/client-go v0.33.1
+	k8s.io/api v0.33.2
+	k8s.io/apimachinery v0.33.2
+	k8s.io/cli-runtime v0.33.2
+	k8s.io/client-go v0.33.2
 	k8s.io/klog/v2 v2.130.1
 	sigs.k8s.io/controller-runtime v0.21.0
 )
@@ -107,7 +107,7 @@ require (
 	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.33.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250505200425-f936aa4a68b2 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/grpc v1.73.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
