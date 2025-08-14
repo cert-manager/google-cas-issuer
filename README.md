@@ -143,13 +143,24 @@ gcloud privateca pools add-iam-policy-binding my-pool --role=roles/privateca.cer
 
 [Workload identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) lets you bind a
 Kubernetes service account to a Google Cloud service account. In order to take advantage of this, your
-GKE cluster must be set up to use it. If you want to create a cluster from scratch to test the issuer,
-you can enable it like so:
+GKE cluster must be set up to use it.
+
+##### Required Configuration
+
+The node pool for your cluster must enable workload metadata. Google Cloud documentation includes
+instructions for doing so on [a new node pool](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity#option_1_node_pool_creation_with_recommended)
+or for enabling workload metadata on [an existing node pool](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity#option_2_node_pool_modification).
+
+##### With a New Cluster
+
+If you want to create a cluster from scratch to test the issuer, you can enable it like so:
 
 ```sh
 gcloud container clusters create test --region us-east1 --num-nodes=1 --preemptible \
   --workload-pool=$(gcloud config get-value project | tr ':' '/').svc.id.goog
 ```
+
+##### With an Existing Cluster
 
 If you want to use the CAS issuer in an existing cluster, you can still
 enable the workload identity feature with:
