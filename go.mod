@@ -7,11 +7,11 @@ require (
 	github.com/cert-manager/cert-manager v1.18.2
 	github.com/cert-manager/issuer-lib v0.8.0
 	github.com/google/uuid v1.6.0
-	github.com/onsi/ginkgo/v2 v2.25.1
-	github.com/onsi/gomega v1.38.1
+	github.com/onsi/ginkgo/v2 v2.25.3
+	github.com/onsi/gomega v1.38.2
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
-	github.com/stretchr/testify v1.11.0
+	github.com/stretchr/testify v1.11.1
 	google.golang.org/api v0.248.0
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822
 	google.golang.org/protobuf v1.36.8
