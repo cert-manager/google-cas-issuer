@@ -107,7 +107,7 @@ func (o *GoogleCAS) Check(ctx context.Context, issuerObj issuerapi.Issuer) error
 func (o *GoogleCAS) Sign(ctx context.Context, cr signer.CertificateRequestObject, issuerObj issuerapi.Issuer) (signer.PEMBundle, error) {
 	issuerSpec, resourceNamespace := o.extractIssuerSpec(issuerObj)
 
-	_, duration, csrBlob, err := cr.GetRequest()
+	details, err := cr.GetCertificateDetails()
 	if err != nil {
 		return signer.PEMBundle{}, err
 	}
@@ -124,10 +124,10 @@ func (o *GoogleCAS) Sign(ctx context.Context, cr signer.CertificateRequestObject
 		CertificateId: fmt.Sprintf("cert-manager-%d", rand.Int()),
 		Certificate: &casapi.Certificate{
 			CertificateConfig: &casapi.Certificate_PemCsr{
-				PemCsr: string(csrBlob),
+				PemCsr: string(details.CSR),
 			},
 			Lifetime: &durationpb.Duration{
-				Seconds: duration.Milliseconds() / 1000,
+				Seconds: details.Duration.Milliseconds() / 1000,
 				Nanos:   0,
 			},
 			CertificateTemplate: issuerSpec.CertificateTemplate,

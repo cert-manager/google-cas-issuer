@@ -63,8 +63,8 @@ type GoogleCASIssuer struct {
 	Status v1alpha1.IssuerStatus `json:"status,omitempty"`
 }
 
-func (vi *GoogleCASIssuer) GetStatus() *v1alpha1.IssuerStatus {
-	return &vi.Status
+func (vi *GoogleCASIssuer) GetConditions() []metav1.Condition {
+	return vi.Status.Conditions
 }
 
 func (vi *GoogleCASIssuer) GetIssuerTypeIdentifier() string {
