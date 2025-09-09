@@ -36,8 +36,8 @@ type GoogleCASClusterIssuer struct {
 	Status v1alpha1.IssuerStatus `json:"status,omitempty"`
 }
 
-func (vi *GoogleCASClusterIssuer) GetStatus() *v1alpha1.IssuerStatus {
-	return &vi.Status
+func (vi *GoogleCASClusterIssuer) GetConditions() []metav1.Condition {
+	return vi.Status.Conditions
 }
 
 func (vi *GoogleCASClusterIssuer) GetIssuerTypeIdentifier() string {
