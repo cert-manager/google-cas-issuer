@@ -11,5 +11,5 @@ roleRef:
   name: {{ include "cert-manager-google-cas-issuer.name" . }}
 subjects:
 - kind: ServiceAccount
-  name: {{ include "cert-manager-google-cas-issuer.name" . }}
+  name: {{ include "cert-manager-google-cas-issuer.serviceAccountName" . }}
   namespace: {{ .Release.Namespace }}
