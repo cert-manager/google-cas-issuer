@@ -3,7 +3,7 @@ module github.com/cert-manager/google-cas-issuer
 go 1.24.0
 
 require (
-	cloud.google.com/go/security v1.19.1
+	cloud.google.com/go/security v1.19.2
 	github.com/cert-manager/cert-manager v1.18.2
 	github.com/cert-manager/issuer-lib v0.9.0
 	github.com/google/uuid v1.6.0
