@@ -131,12 +131,12 @@ func (h *Helper) WaitForUnstructuredReady(dr dynamic.NamespaceableResourceInterf
 		if !found {
 			return false, nil
 		}
-		conditions, ok := status["conditions"].([]interface{})
+		conditions, ok := status["conditions"].([]any)
 		if !ok {
 			return false, errors.New(".status.conditions is not []interface{}")
 		}
 		for _, c := range conditions {
-			cond, ok := c.(map[string]interface{})
+			cond, ok := c.(map[string]any)
 			if !ok {
 				return false, errors.New(".status.conditions doesn't contain a map")
 			}
