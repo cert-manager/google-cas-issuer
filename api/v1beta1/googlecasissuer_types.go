@@ -41,7 +41,7 @@ type GoogleCASIssuerSpec struct {
 
 	// Credentials is a reference to a Kubernetes Secret Key that contains Google Service Account Credentials
 	// +optional
-	Credentials cmmetav1.SecretKeySelector `json:"credentials,omitempty"`
+	Credentials cmmetav1.SecretKeySelector `json:"credentials,omitzero"`
 
 	// CertificateTemplate is specific certificate template to
 	// use. Omit to not specify a template
@@ -56,11 +56,13 @@ type GoogleCASIssuerSpec struct {
 // +kubebuilder:subresource:status
 // GoogleCASIssuer is the Schema for the googlecasissuers API
 type GoogleCASIssuer struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   GoogleCASIssuerSpec   `json:"spec,omitempty"`
-	Status v1alpha1.IssuerStatus `json:"status,omitempty"`
+	Spec GoogleCASIssuerSpec `json:"spec"`
+	// +optional
+	Status v1alpha1.IssuerStatus `json:"status,omitzero"`
 }
 
 func (vi *GoogleCASIssuer) GetConditions() []metav1.Condition {
@@ -77,7 +79,8 @@ var _ v1alpha1.Issuer = &GoogleCASIssuer{}
 // GoogleCASIssuerList contains a list of GoogleCASIssuer
 type GoogleCASIssuerList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	// +optional
+	metav1.ListMeta `json:"metadata"`
 	Items           []GoogleCASIssuer `json:"items"`
 }
 

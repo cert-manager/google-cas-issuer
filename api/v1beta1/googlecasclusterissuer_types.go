@@ -29,11 +29,13 @@ import (
 // +kubebuilder:subresource:status
 // GoogleCASClusterIssuer is the Schema for the googlecasclusterissuers API
 type GoogleCASClusterIssuer struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   GoogleCASIssuerSpec   `json:"spec,omitempty"`
-	Status v1alpha1.IssuerStatus `json:"status,omitempty"`
+	Spec GoogleCASIssuerSpec `json:"spec"`
+	// +optional
+	Status v1alpha1.IssuerStatus `json:"status,omitzero"`
 }
 
 func (vi *GoogleCASClusterIssuer) GetConditions() []metav1.Condition {
@@ -50,7 +52,8 @@ var _ v1alpha1.Issuer = &GoogleCASClusterIssuer{}
 // GoogleCASClusterIssuerList contains a list of GoogleCASClusterIssuer
 type GoogleCASClusterIssuerList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	// +optional
+	metav1.ListMeta `json:"metadata"`
 	Items           []GoogleCASClusterIssuer `json:"items"`
 }
 
