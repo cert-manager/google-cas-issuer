@@ -44,8 +44,7 @@ If not already running in the cluster, install cert-manager by following the [of
 ### Installing Google CAS Issuer for cert-manager
 
 ```shell
-helm repo add jetstack https://charts.jetstack.io --force-update
-helm upgrade -i cert-manager-google-cas-issuer jetstack/cert-manager-google-cas-issuer -n cert-manager --wait
+helm upgrade -i cert-manager-google-cas-issuer oci://quay.io/jetstack/charts/cert-manager-google-cas-issuer -n cert-manager --wait
 ```
 
 Or alternatively, assuming that you have installed cert-manager in the `cert-manager` namespace, you can use a single kubectl
