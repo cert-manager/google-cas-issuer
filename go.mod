@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	cloud.google.com/go/security v1.19.2
-	github.com/cert-manager/cert-manager v1.19.1
+	github.com/cert-manager/cert-manager v1.19.2
 	github.com/cert-manager/issuer-lib v0.9.0
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.27.3
