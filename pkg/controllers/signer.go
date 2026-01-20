@@ -19,6 +19,8 @@ package controllers
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -142,6 +144,29 @@ func (o *GoogleCAS) Sign(ctx context.Context, cr signer.CertificateRequestObject
 	}
 
 	chainPEM, caPem, err := extractCertAndCA(createCertResp)
+	if err != nil {
+		return signer.PEMBundle{}, err
+	}
+
+	if issuerSpec.CAFetchMode == issuersv1beta1.CAFetchModePoolCAs {
+		// Fetch CA certs from the pool
+		fetchCaCertsReq := &casapi.FetchCaCertsRequest{
+			CaPool: parent,
+		}
+		fetchResp, err := casClient.FetchCaCerts(ctx, fetchCaCertsReq)
+		if err != nil {
+			return signer.PEMBundle{}, fmt.Errorf("casClient.FetchCaCerts failed: %w", err)
+		}
+
+		filteredCA, err := filterAndDeduplicateCAs(fetchResp.CaCerts)
+		if err != nil {
+			return signer.PEMBundle{}, fmt.Errorf("filterAndDeduplicateCAs failed: %w", err)
+		}
+		if len(filteredCA) > 0 {
+			caPem = filteredCA
+		}
+	}
+
 	return signer.PEMBundle{
 		ChainPEM: chainPEM,
 		CAPEM:    caPem,
@@ -231,4 +256,42 @@ func extractCertAndCA(resp *casapi.Certificate) (cert []byte, ca []byte, err err
 		strings.TrimSpace(
 			resp.PemCertificateChain[len(resp.PemCertificateChain)-1],
 		) + "\n"), nil
+}
+
+func filterAndDeduplicateCAs(caChains []*casapi.FetchCaCertsResponse_CertChain) ([]byte, error) {
+	caBuf := &bytes.Buffer{}
+	seen := make(map[string]struct{})
+	now := time.Now()
+
+	for _, chain := range caChains {
+		for _, certPEM := range chain.Certificates {
+			block, _ := pem.Decode([]byte(certPEM))
+			if block == nil {
+				return nil, fmt.Errorf("filterAndDeduplicateCAs: failed to decode PEM block")
+			}
+
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return nil, fmt.Errorf("filterAndDeduplicateCAs: failed to parse certificate: %w", err)
+			}
+
+			if !cert.IsCA || !bytes.Equal(cert.RawSubject, cert.RawIssuer) {
+				continue
+			}
+
+			if !cert.NotAfter.After(now) {
+				continue
+			}
+
+			uniqueKey := string(cert.RawSubject) + string(cert.SubjectKeyId)
+			if _, exists := seen[uniqueKey]; exists {
+				continue
+			}
+			seen[uniqueKey] = struct{}{}
+
+			caBuf.WriteString(strings.TrimSpace(certPEM))
+			caBuf.WriteRune('\n')
+		}
+	}
+	return caBuf.Bytes(), nil
 }
