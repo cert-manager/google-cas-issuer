@@ -84,6 +84,12 @@ spec:
                   required:
                     - name
                   type: object
+                fetchCaBundle:
+                  description: |-
+                    FetchCaBundle controls whether the ca.crt contains root CA certificate of the Certificate Authority Service CA 
+                    that has issued the certificate (false, default behaviour) or all root CA certificates of all ENABLED, DISABLED, 
+                    or STAGED Certificate Authority Service CA Pool CAs that are not expired (true).
+                  type: boolean
                 location:
                   description: Location is the Google Cloud Project Location
                   type: string

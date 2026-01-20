@@ -47,6 +47,12 @@ type GoogleCASIssuerSpec struct {
 	// use. Omit to not specify a template
 	// +optional
 	CertificateTemplate string `json:"certificateTemplate,omitempty"`
+
+	// FetchCaBundle controls whether the ca.crt contains root CA certificate of the Certificate Authority Service CA 
+	// that has issued the certificate (false, default behaviour) or all root CA certificates of all ENABLED, DISABLED, or STAGED 
+	// Certificate Authority Service CA Pool CAs that are not expired (true).
+	// +optional
+	FetchCaBundle bool `json:"fetchCaBundle,omitempty"`
 }
 
 // +kubebuilder:object:root=true
