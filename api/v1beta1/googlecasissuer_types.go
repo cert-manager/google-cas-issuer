@@ -48,12 +48,24 @@ type GoogleCASIssuerSpec struct {
 	// +optional
 	CertificateTemplate string `json:"certificateTemplate,omitempty"`
 
-	// FetchCaBundle controls whether the ca.crt contains root CA certificate of the Certificate Authority Service CA 
-	// that has issued the certificate (false, default behaviour) or all root CA certificates of all ENABLED, DISABLED, or STAGED 
-	// Certificate Authority Service CA Pool CAs that are not expired (true).
+	// CAFetchMode controls how the CA certificate chain is fetched and constructed.
+	// Possible values: "CA" (default), "PoolCAs".
+	// "CA": ca.crt contains root CA certificate of the Certificate Authority Service CA that has issued the certificate.
+	// "PoolCAs": ca.crt contains all root CA certificates of all ENABLED, DISABLED, or STAGED Certificate Authority Service CA Pool CAs that are not expired.
 	// +optional
-	FetchCaBundle bool `json:"fetchCaBundle,omitempty"`
+	CAFetchMode CAFetchMode `json:"caFetchMode,omitempty"`
 }
+
+// CAFetchMode controls how the CA certificate chain is fetched and constructed.
+type CAFetchMode string
+
+const (
+	// CAFetchModeCA indicates that only the issuing CA's root certificate should be fetched.
+	CAFetchModeCA CAFetchMode = "CA"
+
+	// CAFetchModePoolCAs indicates that all root certificates in the CA pool should be fetched.
+	CAFetchModePoolCAs CAFetchMode = "PoolCAs"
+)
 
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"

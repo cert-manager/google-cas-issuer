@@ -148,7 +148,7 @@ func (o *GoogleCAS) Sign(ctx context.Context, cr signer.CertificateRequestObject
 		return signer.PEMBundle{}, err
 	}
 
-	if issuerSpec.FetchCaBundle {
+	if issuerSpec.CAFetchMode == issuersv1beta1.CAFetchModePoolCAs {
 		// Fetch CA certs from the pool
 		fetchCaCertsReq := &casapi.FetchCaCertsRequest{
 			CaPool: parent,
