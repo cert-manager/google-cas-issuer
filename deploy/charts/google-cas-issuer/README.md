@@ -23,7 +23,7 @@ This option decides if the CRDs should be installed as part of the Helm installa
 > true
 > ```
 
-This option makes it so that the "helm.sh/resource-policy": keep annotation is added to the CRD. This will prevent Helm from uninstalling the CRD when the Helm release is uninstalled. WARNING: when the CRDs are removed, all cert-manager custom resources  
+This option makes it so that the "helm.sh/resource-policy": keep annotation is added to the CRD. This will prevent Helm from uninstalling the CRD when the Helm release is uninstalled. WARNING: when the CRDs are removed, all cert-manager custom resources
 (Certificates, Issuers, ...) will be removed too by the garbage collector.
 #### **replicaCount** ~ `number`
 > Default value:
@@ -155,7 +155,7 @@ Optional additional labels to add to the google-cas-issuer Pods
 > {}
 > ```
 
-Kubernetes pod resource requests/limits for google-cas-issuer.  
+Kubernetes pod resource requests/limits for google-cas-issuer.
 For example:
 
 ```yaml
@@ -172,7 +172,7 @@ requests:
 > {}
 > ```
 
-Kubernetes node selector: node labels for pod assignment  
+Kubernetes node selector: node labels for pod assignment
 For example:
 
 ```yaml
@@ -184,7 +184,7 @@ kubernetes.io/os: linux
 > {}
 > ```
 
-Kubernetes affinity: constraints for pod assignment  
+Kubernetes affinity: constraints for pod assignment
 For example:
 
 ```yaml
@@ -203,8 +203,8 @@ nodeAffinity:
 > []
 > ```
 
-Kubernetes pod tolerations for google-cas-issuer  
-For example:  
+Kubernetes pod tolerations for google-cas-issuer
+For example:
  - operator: "Exists"
 #### **priorityClassName** ~ `string`
 > Default value:
