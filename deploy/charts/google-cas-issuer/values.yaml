@@ -115,6 +115,24 @@ tolerations: []
 # Optional priority class to be used for the google-cas-issuer pods.
 priorityClassName: ""
 
+# Pod Security Context.
+# For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
+# +docs:property
+securityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container Security Context to be set on the controller component container.
+# For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
+# +docs:property
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+
 # Override the "cert-manager-google-cas-issuer.name" value.
 # +docs:property
 # nameOverride: "my-google-cas-issuer"
