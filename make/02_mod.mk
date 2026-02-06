@@ -19,7 +19,6 @@ $(kind_cluster_config): make/config/kind/cluster.yaml | $(bin_dir)/scratch
 
 include make/test-e2e.mk
 include make/test-unit.mk
-include make/_shared/helm/crds.mk
 
 .PHONY: release
 ## Publish all release artifacts (image + helm chart)

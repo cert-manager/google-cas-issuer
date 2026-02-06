@@ -29,9 +29,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cert-manager/google-cas-issuer/api/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
+
+	"github.com/cert-manager/google-cas-issuer/api/v1beta1"
 )
 
 func TestBuildParentString(t *testing.T) {

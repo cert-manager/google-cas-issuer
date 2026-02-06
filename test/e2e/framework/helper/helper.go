@@ -248,3 +248,97 @@ func (h *Helper) VerifyCMCertificate(namespace, name string) error {
 
 	return nil
 }
+
+// VerifyMultiplePoolCAs verifies that the ca.crt field contains multiple CA certificates
+// when using CAFetchMode: PoolCAs. It checks that:
+// 1. ca.crt contains at least one CA certificate
+// 2. All certificates in ca.crt are valid CA certificates
+// 3. The certificate chain can be verified against the pool CAs
+func (h *Helper) VerifyMultiplePoolCAs(namespace, name string) error {
+	certificate, err := h.cmClient.CertmanagerV1().Certificates(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("couldn't get certificate %s/%s: %w", namespace, name, err)
+	}
+
+	if certificate == nil {
+		return errors.New("certificate is nil")
+	}
+
+	secret, err := h.kubeClient.CoreV1().Secrets(certificate.ObjectMeta.Namespace).Get(context.TODO(), certificate.Spec.SecretName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("couldn't retrieve secret %s/%s: %w", certificate.ObjectMeta.Namespace, certificate.Spec.SecretName, err)
+	}
+
+	caCrt, found := secret.Data["ca.crt"]
+	if !found {
+		return fmt.Errorf("ca.crt not found in secret %s/%s", certificate.ObjectMeta.Namespace, certificate.Spec.SecretName)
+	}
+
+	tlsCrt, found := secret.Data["tls.crt"]
+	if !found {
+		return fmt.Errorf("tls.crt not found in secret %s/%s", certificate.ObjectMeta.Namespace, certificate.Spec.SecretName)
+	}
+
+	tlsKey, found := secret.Data["tls.key"]
+	if !found {
+		return fmt.Errorf("tls.key not found in secret %s/%s", certificate.ObjectMeta.Namespace, certificate.Spec.SecretName)
+	}
+
+	cert, err := tls.X509KeyPair(tlsCrt, tlsKey)
+	if err != nil {
+		return fmt.Errorf("certificate in secret %s/%s is invalid: %w", certificate.ObjectMeta.Namespace, certificate.Spec.SecretName, err)
+	}
+
+	// Parse all CA certificates from ca.crt
+	caPool := x509.NewCertPool()
+	caCerts := []*x509.Certificate{}
+	rest := caCrt
+	caCount := 0
+
+	for len(rest) > 0 {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+
+		ca, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return fmt.Errorf("invalid CA certificate at position %d in secret %s/%s: %w", caCount, certificate.ObjectMeta.Namespace, certificate.Spec.SecretName, err)
+		}
+
+		// Verify it's a CA certificate
+		if !ca.IsCA {
+			return fmt.Errorf("certificate at position %d in ca.crt is not a CA certificate in secret %s/%s", caCount, certificate.ObjectMeta.Namespace, certificate.Spec.SecretName)
+		}
+
+		caCerts = append(caCerts, ca)
+		caPool.AddCert(ca)
+		caCount++
+	}
+
+	if caCount == 0 {
+		return fmt.Errorf("no CA certificates found in ca.crt in secret %s/%s", certificate.ObjectMeta.Namespace, certificate.Spec.SecretName)
+	}
+
+	// Verify that the certificate chain can be validated against the CA pool
+	lastCert, err := x509.ParseCertificate(cert.Certificate[len(cert.Certificate)-1])
+	if err != nil {
+		return fmt.Errorf("tls.cert in secret %s/%s has invalid cert at %d in chain: %w", certificate.ObjectMeta.Namespace, certificate.Spec.SecretName, len(cert.Certificate)-1, err)
+	}
+
+	_, err = lastCert.Verify(x509.VerifyOptions{
+		Roots:       caPool,
+		CurrentTime: time.Now(),
+		KeyUsages:   []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	})
+	if err != nil {
+		return fmt.Errorf("ca.crt pool in secret %s/%s doesn't validate tls.crt: %w", certificate.ObjectMeta.Namespace, certificate.Spec.SecretName, err)
+	}
+
+	return nil
+}
