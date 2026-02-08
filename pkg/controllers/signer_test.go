@@ -17,9 +17,17 @@ limitations under the License.
 package controllers
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"math/big"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
@@ -165,4 +173,125 @@ root
 		assert.Equalf(t, tt.expected.ca, ca, "Test %s failed", tt.name)
 		assert.Equalf(t, tt.expected.err, err, "Test %s failed", tt.name)
 	}
+}
+
+func TestFilterAndDeduplicateCAs(t *testing.T) {
+	now := time.Now()
+	validExpiry := now.Add(24 * time.Hour)
+	expiredExpiry := now.Add(-24 * time.Hour)
+
+	rootCA := generateTestCert(t, true, "root", "root", validExpiry, []byte("key1"))
+	expiredRoot := generateTestCert(t, true, "expired", "expired", expiredExpiry, []byte("key2"))
+	nonCA := generateTestCert(t, false, "leaf", "leaf", validExpiry, []byte("key3"))
+	intermediate := generateTestCert(t, true, "inter", "root", validExpiry, []byte("key4"))
+	duplicateRoot := generateTestCert(t, true, "root", "root", validExpiry, []byte("key1")) // Same Subject/SKI as rootCA
+	differentRoot := generateTestCert(t, true, "root2", "root2", validExpiry, []byte("key5"))
+
+	tests := []struct {
+		name     string
+		caChains []*privateca.FetchCaCertsResponse_CertChain
+		want     []string // substrings we expect in output
+		dontWant []string // substrings we expect NOT in output
+	}{
+		{
+			name: "Valid Root CA",
+			caChains: []*privateca.FetchCaCertsResponse_CertChain{
+				{Certificates: []string{rootCA}},
+			},
+			want: []string{strings.TrimSpace(rootCA)},
+		},
+		{
+			name: "Expired Root CA",
+			caChains: []*privateca.FetchCaCertsResponse_CertChain{
+				{Certificates: []string{expiredRoot}},
+			},
+			dontWant: []string{strings.TrimSpace(expiredRoot)},
+		},
+		{
+			name: "Non-CA Certificate",
+			caChains: []*privateca.FetchCaCertsResponse_CertChain{
+				{Certificates: []string{nonCA}},
+			},
+			dontWant: []string{strings.TrimSpace(nonCA)},
+		},
+		{
+			name: "Intermediate CA (Subject != Issuer)",
+			caChains: []*privateca.FetchCaCertsResponse_CertChain{
+				{Certificates: []string{intermediate}},
+			},
+			dontWant: []string{strings.TrimSpace(intermediate)},
+		},
+		{
+			name: "Deduplication",
+			caChains: []*privateca.FetchCaCertsResponse_CertChain{
+				{Certificates: []string{rootCA, duplicateRoot}},
+			},
+			want: []string{strings.TrimSpace(rootCA)},
+		},
+		{
+			name: "Multiple Valid Roots",
+			caChains: []*privateca.FetchCaCertsResponse_CertChain{
+				{Certificates: []string{rootCA, differentRoot}},
+			},
+			want: []string{strings.TrimSpace(rootCA), strings.TrimSpace(differentRoot)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotBytes, err := filterAndDeduplicateCAs(tt.caChains)
+			assert.NoError(t, err)
+			got := string(gotBytes)
+
+			for _, w := range tt.want {
+				assert.Contains(t, got, w)
+			}
+			for _, dw := range tt.dontWant {
+				assert.NotContains(t, got, dw)
+			}
+
+			if tt.name == "Deduplication" {
+				assert.Contains(t, got, strings.TrimSpace(rootCA))
+				assert.NotContains(t, got, strings.TrimSpace(duplicateRoot))
+			}
+		})
+	}
+}
+
+func generateTestCert(t *testing.T, isCA bool, subject, issuer string, expiry time.Time, ski []byte) string {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	parentKey := key
+	parentSubject := pkix.Name{CommonName: issuer}
+
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: subject},
+		NotBefore:             time.Now().Add(-1 * time.Hour),
+		NotAfter:              expiry,
+		IsCA:                  isCA,
+		BasicConstraintsValid: true,
+		SubjectKeyId:          ski,
+	}
+
+	parent := &x509.Certificate{
+		Subject: parentSubject,
+	}
+
+	var parentTmpl *x509.Certificate
+	if subject == issuer {
+		parentTmpl = template
+	} else {
+		parentTmpl = parent
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, template, parentTmpl, &key.PublicKey, parentKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 }
