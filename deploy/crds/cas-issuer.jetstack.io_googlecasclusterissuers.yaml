@@ -50,6 +50,16 @@ spec:
           spec:
             description: GoogleCASIssuerSpec defines the desired state of GoogleCASIssuer
             properties:
+              caFetchMode:
+                description: |-
+                  CAFetchMode controls how the CA certificate chain is fetched and constructed.
+                  Possible values: "CA" (default), "PoolCAs".
+                  "CA": ca.crt contains root CA certificate of the Certificate Authority Service CA that has issued the certificate.
+                  "PoolCAs": ca.crt contains all root CA certificates of all ENABLED, DISABLED, or STAGED Certificate Authority Service CA Pool CAs that are not expired.
+                enum:
+                - CA
+                - PoolCAs
+                type: string
               caPoolId:
                 description: CaPoolId is the id of the CA pool to issue certificates
                   from
