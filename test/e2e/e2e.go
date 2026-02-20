@@ -20,6 +20,7 @@ import (
 	"context"
 	"flag"
 	"os"
+	"os/exec"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,11 +74,16 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 }, func([]byte) {
 })
 
-var _ = SynchronizedAfterSuite(func() {},
-	func() {
-		if kubeClientSet == nil {
-			return
-		}
-		_ = kubeClientSet.CoreV1().Namespaces().Delete(context.TODO(), cfg.Namespace, metav1.DeleteOptions{})
-	},
-)
+var _ = ReportAfterSuite("Custom Cleanup", func(report Report) {
+	if kubeClientSet == nil {
+		return
+	}
+	if !report.SuiteSucceeded {
+		cmd := exec.Command("kubectl", "describe", "certificaterequest", "-n", cfg.Namespace, "--kubeconfig", cfg.KubeConfigPath)
+		out, _ := cmd.CombinedOutput()
+		klog.Info(string(out))
+
+		klog.Infof("Test suite failed, keeping namespace %s for debugging", cfg.Namespace)
+	}
+	_ = kubeClientSet.CoreV1().Namespaces().Delete(context.TODO(), cfg.Namespace, metav1.DeleteOptions{})
+})

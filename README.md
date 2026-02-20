@@ -138,6 +138,13 @@ Apply the appropriate IAM bindings to this account. This example permits the lea
 gcloud privateca pools add-iam-policy-binding my-pool --role=roles/privateca.certificateRequester --member="serviceAccount:sa-google-cas-issuer@$(gcloud config get-value project | tr ':' '/').iam.gserviceaccount.com" --location=us-east1
 ```
 
+If you plan to opt-in for fetching Root CAs of al CAS CA Pool CAs using `caFetchMode` Issuer flag, then you need to grant google-cas-issuer Google Service Account additional "CA Service Pool Reader" (`roles/privateca.poolReader`) role:
+
+```shell
+gcloud privateca pools add-iam-policy-binding my-pool --role=roles/privateca.poolReader --member="serviceAccount:sa-google-cas-issuer@$(gcloud config get-value project | tr ':' '/').iam.gserviceaccount.com" --location=us-east1
+```
+
+
 #### Inside GKE with workload identity
 
 [Workload identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) lets you bind a
