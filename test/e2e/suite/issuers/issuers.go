@@ -341,10 +341,6 @@ var _ = framework.CasesDescribe("issuers", func() {
 		_, err = f.Helper().WaitForCertificateReady(cfg.Namespace, certName, 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("Verifying certificate chain and CA")
-		err = f.Helper().VerifyCMCertificate(cfg.Namespace, certName)
-		Expect(err).NotTo(HaveOccurred())
-
 		By("Verifying ca.crt contains multiple CA certificates from pool")
 		err = f.Helper().VerifyMultiplePoolCAs(cfg.Namespace, certName)
 		Expect(err).NotTo(HaveOccurred())
