@@ -12,7 +12,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
-	google.golang.org/api v0.266.0
+	google.golang.org/api v0.267.0
 	google.golang.org/genproto v0.0.0-20260128011058-8636f8732409
 	google.golang.org/protobuf v1.36.11
 	k8s.io/api v0.35.1
