@@ -30,7 +30,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
+	"google.golang.org/api/privateca/v1"
 
 	"github.com/cert-manager/google-cas-issuer/api/v1beta1"
 )
@@ -144,6 +144,38 @@ intermediate2
 -----END CERTIFICATE-----`, `-----BEGIN CERTIFICATE-----
 intermediate1
 -----END CERTIFICATE-----`, `-----BEGIN CERTIFICATE-----
+root
+-----END CERTIFICATE-----`},
+			},
+			expected: expected{
+				[]byte(`-----BEGIN CERTIFICATE-----
+leaf
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+intermediate2
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+intermediate1
+-----END CERTIFICATE-----
+`),
+				[]byte(`-----BEGIN CERTIFICATE-----
+root
+-----END CERTIFICATE-----
+`),
+				nil,
+			},
+		},
+		{
+			name: "Extract the root cert if several certificates are passed within the last element of the certificate chain",
+			input: &privateca.Certificate{
+				PemCertificate: `-----BEGIN CERTIFICATE-----
+leaf
+-----END CERTIFICATE-----`,
+				PemCertificateChain: []string{`-----BEGIN CERTIFICATE-----
+intermediate2
+-----END CERTIFICATE-----`, `-----BEGIN CERTIFICATE-----
+intermediate1
+-----END CERTIFICATE-----\r\n-----BEGIN CERTIFICATE-----
 root
 -----END CERTIFICATE-----`},
 			},
