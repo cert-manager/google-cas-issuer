@@ -78,7 +78,7 @@ func (s *GoogleCAS) SetupWithManager(ctx context.Context, mgr ctrl.Manager) erro
 
 		SetCAOnCertificateRequest: true,
 
-		EventRecorder: mgr.GetEventRecorderFor(fieldOwner),
+		EventRecorder: mgr.GetEventRecorder(fieldOwner),
 	}).SetupWithManager(ctx, mgr)
 }
 
