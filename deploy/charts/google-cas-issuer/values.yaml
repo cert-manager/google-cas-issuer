@@ -37,11 +37,16 @@ imagePullSecrets: []
 commonLabels: {}
 
 serviceAccount:
-  # Optional annotations to add to the service account
+  # -- Specifies whether a service account should be created
+  create: true
+  # -- The name used to create the service account or the name of an existing service account to use if not creating one.
+  # if create is false, this name is required or the default service account will be used.
+  name: ""
+  # -- Optional annotations to add to the service account
   annotations: {}
 
 app:
-  # Verbosity of google-cas-issuer logging.
+  # -- Verbosity of google-cas-issuer logging.
   logLevel: 1 # 1-5
 
   # Handle RBAC permissions for approving Google CAS issuer
@@ -62,9 +67,9 @@ app:
     #   name: cert-manager-approver-policy
     #   namespace: cert-manager
     subjects:
-    - kind: ServiceAccount
-      name: cert-manager
-      namespace: cert-manager
+      - kind: ServiceAccount
+        name: cert-manager
+        namespace: cert-manager
 
   # metrics controls exposing google-cas-issuer metrics.
   metrics:
