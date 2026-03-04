@@ -30,7 +30,7 @@ import (
 	privateca "cloud.google.com/go/security/privateca/apiv1"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	issuerapi "github.com/cert-manager/issuer-lib/api/v1alpha1"
-	controllers "github.com/cert-manager/issuer-lib/controllers"
+	controllerslib "github.com/cert-manager/issuer-lib/controllers"
 	"github.com/cert-manager/issuer-lib/controllers/signer"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	issuersv1beta1 "github.com/cert-manager/google-cas-issuer/api/v1beta1"
 )
@@ -53,7 +54,13 @@ type GoogleCAS struct {
 	MaxRetryDuration time.Duration
 }
 
+// SetupWithManager keeps existing behavior (uses controller-runtime defaults).
 func (s *GoogleCAS) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+	return s.SetupWithManagerWithOptions(ctx, mgr, controller.Options{})
+}
+
+// SetupWithManagerWithOptions allows configuring controller-runtime options
+func (s *GoogleCAS) SetupWithManagerWithOptions(ctx context.Context, mgr ctrl.Manager, ctrlOpts controller.Options) error {
 	const fieldOwner = "cas-issuer.jetstack.io"
 
 	if err := cmapi.AddToScheme(mgr.GetScheme()); err != nil {
@@ -66,15 +73,16 @@ func (s *GoogleCAS) SetupWithManager(ctx context.Context, mgr ctrl.Manager) erro
 
 	s.client = mgr.GetClient()
 
-	return (&controllers.CombinedController{
+	return (&controllerslib.CombinedController{
 		IssuerTypes:        []issuerapi.Issuer{&issuersv1beta1.GoogleCASIssuer{}},
 		ClusterIssuerTypes: []issuerapi.Issuer{&issuersv1beta1.GoogleCASClusterIssuer{}},
 
 		FieldOwner:       fieldOwner,
 		MaxRetryDuration: s.MaxRetryDuration,
 
-		Sign:  s.Sign,
-		Check: s.Check,
+		ControllerOptions: ctrlOpts,
+		Sign:              s.Sign,
+		Check:             s.Check,
 
 		SetCAOnCertificateRequest: true,
 
