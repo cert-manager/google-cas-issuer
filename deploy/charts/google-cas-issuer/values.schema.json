@@ -71,6 +71,9 @@
         "logLevel": {
           "$ref": "#/$defs/helm-values.app.logLevel"
         },
+        "maxConcurrentReconciles": {
+          "$ref": "#/$defs/helm-values.app.maxConcurrentReconciles"
+        },
         "metrics": {
           "$ref": "#/$defs/helm-values.app.metrics"
         }
@@ -130,6 +133,11 @@
     "helm-values.app.logLevel": {
       "default": 1,
       "description": "Verbosity of google-cas-issuer logging.",
+      "type": "number"
+    },
+    "helm-values.app.maxConcurrentReconciles": {
+      "default": 1,
+      "description": "Number of concurrent worker threads",
       "type": "number"
     },
     "helm-values.app.metrics": {
