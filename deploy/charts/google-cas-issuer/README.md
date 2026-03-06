@@ -213,5 +213,28 @@ For example:
 > ```
 
 Optional priority class to be used for the google-cas-issuer pods.
+#### **securityContext** ~ `object`
+> Default value:
+> ```yaml
+> runAsNonRoot: true
+> seccompProfile:
+>   type: RuntimeDefault
+> ```
+
+Pod Security Context.  
+For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
+
+#### **containerSecurityContext** ~ `object`
+> Default value:
+> ```yaml
+> allowPrivilegeEscalation: false
+> capabilities:
+>   drop:
+>     - ALL
+> readOnlyRootFilesystem: true
+> ```
+
+Container Security Context to be set on the controller component container. For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
+
 
 <!-- /AUTO-GENERATED -->
