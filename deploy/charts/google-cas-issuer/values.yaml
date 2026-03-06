@@ -66,6 +66,9 @@ app:
       name: cert-manager
       namespace: cert-manager
 
+  # Number of concurrent worker threads
+  maxConcurrentReconciles: 1
+
   # metrics controls exposing google-cas-issuer metrics.
   metrics:
     # Port for exposing Prometheus metrics on 0.0.0.0 on path '/metrics'.
