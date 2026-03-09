@@ -17,10 +17,8 @@ limitations under the License.
 package cmd
 
 import (
-	"math/rand"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -44,9 +42,6 @@ func Execute() {
 func init() {
 	// Check environment variables for config
 	cobra.OnInitialize(flagsFromEnv)
-
-	// initialise psuedorandom numbers for cert IDs
-	rand.Seed(time.Now().UnixNano())
 }
 
 // flagsFromEnv allows flags to be set from environment variables.
