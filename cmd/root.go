@@ -27,6 +27,7 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -45,6 +46,8 @@ var (
 			return root()
 		},
 	}
+	// Default number of worker threads for all controllers created by this manager
+	defaultMaxConcurrentReconciles = 1
 )
 
 func init() {
@@ -54,6 +57,7 @@ func init() {
 	rootCmd.PersistentFlags().String("leader-election-id", "cm-google-cas-issuer", "The ID of the leader election lock that the controller should attempt to acquire.")
 	rootCmd.PersistentFlags().String("cluster-resource-namespace", "cert-manager", "The namespace for secrets in which cluster-scoped resources are found.")
 	rootCmd.PersistentFlags().Bool("disable-approval-check", false, "Don't check whether a CertificateRequest is approved before signing. For compatibility with cert-manager <v1.3.0.")
+	rootCmd.PersistentFlags().Int("max-concurrent-reconciles", defaultMaxConcurrentReconciles, "Maximum number of concurrent reconciliations.")
 
 	rootCmd.PersistentFlags().StringP("log-level", "v", "1", "Log level (1-5).")
 
@@ -99,10 +103,15 @@ func root() error {
 
 	ctx := ctrl.SetupSignalHandler()
 
+	// Read and clamp concurrency
+	maxConcurrentReconciles := max(viper.GetInt("max-concurrent-reconciles"), defaultMaxConcurrentReconciles)
+
+	ctrlOpts := controller.Options{MaxConcurrentReconciles: maxConcurrentReconciles}
+
 	// Start Controllers
 	if err = (&controllers.GoogleCAS{
 		MaxRetryDuration: 30 * time.Second,
-	}).SetupWithManager(ctx, mgr); err != nil {
+	}).SetupWithManager(ctx, mgr, ctrlOpts); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GoogleCASIssuer")
 		return err
 	}
