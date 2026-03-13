@@ -23,7 +23,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"strings"
 	"time"
 
