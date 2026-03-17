@@ -121,6 +121,13 @@ enabled determines whether the ClusterRole and ClusterRoleBinding for approval i
 > ```yaml
 > cert-manager
 > ```
+#### **app.maxConcurrentReconciles** ~ `number`
+> Default value:
+> ```yaml
+> 1
+> ```
+
+Number of concurrent worker threads
 #### **app.metrics.port** ~ `number`
 > Default value:
 > ```yaml
