@@ -17,17 +17,15 @@ limitations under the License.
 package util
 
 import (
-	"math/rand"
-	"time"
+	"math/rand/v2"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyz")
 
 func RandomString(length int) string {
-	testRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	randomString := make([]rune, length)
 	for i := range randomString {
-		randomString[i] = letters[testRand.Intn(len(letters))]
+		randomString[i] = letters[rand.IntN(len(letters))]
 	}
 	return string(randomString)
 }
