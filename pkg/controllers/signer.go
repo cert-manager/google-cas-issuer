@@ -23,7 +23,10 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"maps"
 	"math/rand/v2"
+	"regexp"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -67,10 +70,21 @@ type certificateCreator interface {
 	CreateCertificate(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error)
 }
 
+// casClient defines the Google CAS client operations used during certificate signing,
+// satisfied by *privateca.CertificateAuthorityClient.
+type casClient interface {
+	certificateCreator
+	FetchCaCerts(ctx context.Context, req *casapi.FetchCaCertsRequest, opts ...gax.CallOption) (*casapi.FetchCaCertsResponse, error)
+	Close() error
+}
+
 type GoogleCAS struct {
 	client client.Client
 
 	MaxRetryDuration time.Duration
+
+	// newCasClient overrides createCasClient in unit tests when non-nil.
+	newCasClient func(ctx context.Context, resourceNamespace string, issuerSpec *issuersv1beta1.GoogleCASIssuerSpec) (casClient, error)
 }
 
 // SetupWithManager sets up the controller with the provided controller options
@@ -127,7 +141,7 @@ func (o *GoogleCAS) Check(ctx context.Context, issuerObj issuerapi.Issuer) error
 	return nil
 }
 
-// Sign implements signer.Sign for Venafi TPP and Venafi-as-a-Service.
+// Sign implements signer.Sign for Google CAS.
 func (o *GoogleCAS) Sign(ctx context.Context, cr signer.CertificateRequestObject, issuerObj issuerapi.Issuer) (signer.PEMBundle, error) {
 	issuerSpec, resourceNamespace := o.extractIssuerSpec(issuerObj)
 
@@ -136,13 +150,21 @@ func (o *GoogleCAS) Sign(ctx context.Context, cr signer.CertificateRequestObject
 		return signer.PEMBundle{}, err
 	}
 
-	casClient, err := o.createCasClient(ctx, resourceNamespace, issuerSpec)
+	createClient := o.newCasClient
+	if createClient == nil {
+		createClient = func(ctx context.Context, resourceNamespace string, issuerSpec *issuersv1beta1.GoogleCASIssuerSpec) (casClient, error) {
+			return o.createCasClient(ctx, resourceNamespace, issuerSpec)
+		}
+	}
+	casClient, err := createClient(ctx, resourceNamespace, issuerSpec)
 	if err != nil {
 		return signer.PEMBundle{}, signer.IssuerError{Err: err}
 	}
 	defer casClient.Close()
 
-	createCertResp, parent, err := createCertificateWithFallback(ctx, casClient, issuerSpec, details.CSR, details.Duration)
+	labels := buildCertificateLabels(cr, issuerSpec.CertificateMetadataPropagationMode)
+
+	createCertResp, parent, err := createCertificateWithFallback(ctx, casClient, issuerSpec, details.CSR, details.Duration, labels)
 	if err != nil {
 		return signer.PEMBundle{}, err
 	}
@@ -182,6 +204,7 @@ func buildCreateCertificateRequest(
 	defaultProject string,
 	csr []byte,
 	duration time.Duration,
+	labels map[string]string,
 ) (*casapi.CreateCertificateRequest, string) {
 	project := pool.Project
 	if project == "" {
@@ -202,6 +225,7 @@ func buildCreateCertificateRequest(
 				Nanos:   0,
 			},
 			CertificateTemplate: pool.CertificateTemplate,
+			Labels:              labels,
 		},
 		RequestId:                     uuid.New().String(),
 		IssuingCertificateAuthorityId: pool.CertificateAuthorityId,
@@ -219,6 +243,7 @@ func createCertificateWithFallback(
 	issuerSpec *issuersv1beta1.GoogleCASIssuerSpec,
 	csr []byte,
 	duration time.Duration,
+	labels map[string]string,
 ) (*casapi.Certificate, string, error) {
 	log := ctrl.LoggerFrom(ctx)
 	pools := append([]issuersv1beta1.CAPool{issuerSpec.CAPool}, issuerSpec.Fallbacks...)
@@ -234,7 +259,7 @@ func createCertificateWithFallback(
 			}
 		}
 
-		req, poolParent := buildCreateCertificateRequest(pool, issuerSpec.Project, csr, duration)
+		req, poolParent := buildCreateCertificateRequest(pool, issuerSpec.Project, csr, duration, labels)
 		resp, err := casClient.CreateCertificate(ctx, req)
 		if err == nil {
 			if i > 0 {
@@ -424,4 +449,117 @@ func filterAndDeduplicateCAs(caChains []*casapi.FetchCaCertsResponse_CertChain) 
 		}
 	}
 	return caBuf.Bytes(), nil
+}
+
+// maxCertificateLabels is the maximum number of labels that Google Cloud allows on a resource.
+const maxCertificateLabels = 64
+
+// Keys of the provenance labels. They are valid GCP label keys as they are.
+const (
+	certificateNameLabelKey             = "cert-manager-io_certificate-name"
+	certificateRequestNameLabelKey      = "cert-manager-io_certificate-request-name"
+	certificateRequestNamespaceLabelKey = "cert-manager-io_certificate-request-namespace"
+)
+
+// buildCertificateLabels constructs a map of labels to be applied to a Google CAS Certificate,
+// according to the CertificateMetadataPropagationMode of the issuer. It returns nil unless the
+// issuer has opted in, so by default no labels are set.
+// In "Provenance" mode it sets the provenance metadata: the name of the parent Certificate, and
+// the name and namespace of the CertificateRequest.
+// In "Labels" mode it additionally extracts native Kubernetes labels from the CertificateRequest
+// (which natively inherits them from the parent Certificate), and applies GCP-compliant
+// sanitization. To ensure idempotency and auditability, it injects provenance metadata first
+// and then processes the remaining labels in a deterministic, alphabetically sorted order until
+// the maxCertificateLabels limit is reached.
+func buildCertificateLabels(cr signer.CertificateRequestObject, mode issuersv1beta1.CertificateMetadataPropagationMode) map[string]string {
+	// Propagation is opt-in: no Kubernetes metadata leaves the cluster unless the issuer asks for it.
+	if mode != issuersv1beta1.CertificateMetadataPropagationModeProvenance &&
+		mode != issuersv1beta1.CertificateMetadataPropagationModeLabels {
+		return nil
+	}
+
+	labels := make(map[string]string)
+
+	addLabel := func(key, value string) {
+		if len(labels) >= maxCertificateLabels {
+			return
+		}
+		if _, exists := labels[key]; exists {
+			return
+		}
+		labels[key] = value
+	}
+
+	// Auto-inject provenance first so it is not dropped at the cap.
+	if parentCertName := cr.GetAnnotations()[cmapi.CertificateNameKey]; parentCertName != "" {
+		addLabel(certificateNameLabelKey, sanitizeGCPLabel(parentCertName, false))
+	}
+	if reqName := cr.GetName(); reqName != "" {
+		addLabel(certificateRequestNameLabelKey, sanitizeGCPLabel(reqName, false))
+	}
+	// Kubernetes CertificateSigningRequests are cluster-scoped and have no namespace.
+	if namespace := cr.GetNamespace(); namespace != "" {
+		addLabel(certificateRequestNamespaceLabelKey, sanitizeGCPLabel(namespace, false))
+	}
+
+	if mode == issuersv1beta1.CertificateMetadataPropagationModeLabels {
+		nativeLabels := cr.GetLabels()
+		for _, k := range slices.Sorted(maps.Keys(nativeLabels)) {
+			key := sanitizeGCPLabel(k, true)
+			if hasReservedLabelKeyPrefix(key) {
+				continue
+			}
+			addLabel(key, sanitizeGCPLabel(nativeLabels[k], false))
+		}
+	}
+
+	if len(labels) == 0 {
+		return nil
+	}
+
+	return labels
+}
+
+// reservedLabelKeyPrefixPattern matches any sanitized label key beginning with a prefix that
+// cert-manager.io/ or cert_manager.io/ can sanitize to. These prefixes are reserved for
+// auto-injected provenance labels so that user-supplied Kubernetes labels cannot pass for
+// provenance labels, including ones that are not set on a given request.
+var reservedLabelKeyPrefixPattern = regexp.MustCompile(`^cert[-_]manager[-_]io_`)
+
+// hasReservedLabelKeyPrefix reports whether a sanitized label key starts with a prefix that is
+// reserved for provenance labels.
+func hasReservedLabelKeyPrefix(key string) bool {
+	return reservedLabelKeyPrefixPattern.MatchString(key)
+}
+
+// sanitizeGCPLabel ensures that a string conforms to the strict requirements for GCP labels.
+// GCP Constraints for both Keys and Values:
+// 1. Length must be at most 63 characters (after sanitization). Values can be empty, keys
+// must be at least 1 character long.
+// 2. Can only contain lowercase letters, numeric characters, underscores (_), and dashes (-).
+//
+// Additional Constraint for Keys (when isKey is true):
+// 3. Must start with a lowercase letter.
+//
+// This function forces lowercase, replaces invalid characters with underscores, for keys
+// prefixes with 'l-' if the first character is non-alphabetic, and truncates the result to
+// 63 characters.
+func sanitizeGCPLabel(s string, isKey bool) string {
+	if s == "" {
+		return ""
+	}
+	s = strings.ToLower(s)
+	if isKey && (s[0] < 'a' || s[0] > 'z') {
+		s = "l-" + s
+	}
+	res := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			return r
+		}
+		return '_'
+	}, s)
+	if len(res) > 63 {
+		return res[:63]
+	}
+	return res
 }

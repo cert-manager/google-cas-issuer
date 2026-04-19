@@ -70,6 +70,21 @@ spec:
   caFetchMode: {{ .CAFetchMode }}
 `
 
+	issuerWithMetadataPropagationModeYAML string = `apiVersion: cas-issuer.jetstack.io/v1beta1
+kind: GoogleCASIssuer
+metadata:
+  name: {{ .Name }}
+  namespace: {{ .Namespace }}
+spec:
+  project: {{ .Project }}
+  location: {{ .Location }}
+  caPoolId: {{ .Pool }}
+  credentials:
+    name: {{ .SecretName }}
+    key: "{{ .SecretKey }}"
+  certificateMetadataPropagationMode: {{ .CertificateMetadataPropagationMode }}
+`
+
 	clusterIssuerYaml string = `apiVersion: cas-issuer.jetstack.io/v1beta1
 kind: GoogleCASClusterIssuer
 metadata:
@@ -102,17 +117,19 @@ spec:
 )
 
 type templateConfig struct {
-	Name             string
-	Namespace        string
-	Project          string
-	Location         string
-	Pool             string
-	SecretName       string
-	SecretKey        string
-	CAFetchMode      string
-	FallbackProject  string
-	FallbackCaPoolId string
-	FallbackLocation string
+	Name                               string
+	Namespace                          string
+	Project                            string
+	Location                           string
+	Pool                               string
+	SecretName                         string
+	SecretKey                          string
+	CAFetchMode                        string
+	FallbackProject                    string
+	FallbackCaPoolId                   string
+	FallbackLocation                   string
+	CertificateMetadataPropagationMode string
+	CertificateLabels                  map[string]string
 }
 
 var _ = framework.CasesDescribe("issuers", func() {
@@ -181,6 +198,7 @@ var _ = framework.CasesDescribe("issuers", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      certName,
 				Namespace: cfg.Namespace,
+				Labels:    t.CertificateLabels,
 			},
 			Spec: certmanagerv1.CertificateSpec{
 				SecretName:  certName,
@@ -289,6 +307,28 @@ var _ = framework.CasesDescribe("issuers", func() {
 			FallbackLocation: cfg.FallbackLocation,
 		}
 		certName := createIssuerAndCertificate(t, issuerWithFallbackYAML, 10*time.Second)
+
+		By("Verifying chain and CA")
+		err := f.Helper().VerifyCMCertificate(cfg.Namespace, certName)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("Tests Issuer with certificateMetadataPropagationMode Labels", func() {
+		t := &templateConfig{
+			Name:                               "issuer-labels-" + util.RandomString(5),
+			Namespace:                          cfg.Namespace,
+			Project:                            cfg.Project,
+			Location:                           cfg.Location,
+			Pool:                               cfg.CaPoolId,
+			CertificateMetadataPropagationMode: "Labels",
+			CertificateLabels: map[string]string{
+				"Team.Name":               "Platform_Identity", // uppercase letters and a dot
+				"example.com/Cost-Center": "442",               // a key with a prefix
+				"1st-region":              "us-east1",          // a key that starts with a number
+				"environment":             "",                  // an empty value
+			},
+		}
+		certName := createIssuerAndCertificate(t, issuerWithMetadataPropagationModeYAML, 10*time.Second)
 
 		By("Verifying chain and CA")
 		err := f.Helper().VerifyCMCertificate(cfg.Namespace, certName)
