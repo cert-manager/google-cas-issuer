@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cert-manager/issuer-lib/controllers/signer"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 
@@ -294,4 +295,93 @@ func generateTestCert(t *testing.T, isCA bool, subject, issuer string, expiry ti
 	}
 
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+}
+
+// Mock structure for CertificateRequestObject interface
+type mockCR struct {
+	signer.CertificateRequestObject
+	name        string
+	namespace   string
+	annotations map[string]string
+	labels      map[string]string
+}
+
+func (m *mockCR) GetName() string                   { return m.name }
+func (m *mockCR) GetNamespace() string              { return m.namespace }
+func (m *mockCR) GetAnnotations() map[string]string { return m.annotations }
+func (m *mockCR) GetLabels() map[string]string      { return m.labels }
+
+func TestSanitizeGCPLabel(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		isKey    bool
+		expected string
+	}{
+		{"Valid Label", "team-engineering", true, "team-engineering"},
+		{"Uppercase to Lowercase", "Team-Engineering", true, "team-engineering"},
+		{"Invalid Characters Replaced", "tenant/123@region", false, "tenant_123_region"},
+		{"Key Starts with Number", "123-tenant", true, "l-123-tenant"},
+		{"Key Starts with Alphabet", "a123-tenant", true, "a123-tenant"},
+		{"Value Starts with Number", "123-tenant", false, "123-tenant"},
+		{"Exceeds 63 characters", "this-is-a-very-long-label-that-is-way-longer-than-sixty-three-characters", true, "this-is-a-very-long-label-that-is-way-longer-than-sixty-three-c"},
+		{"Empty string", "", true, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeGCPLabel(tt.input, tt.isKey)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func TestBuildCertificateLabels(t *testing.T) {
+	googleCAS := &GoogleCAS{}
+
+	// Test case: Base generation with origin tags and K8s labels
+	cr1 := &mockCR{
+		name:      "test-request",
+		namespace: "default",
+		annotations: map[string]string{
+			"cert-manager.io/certificate-name": "parent-cert",
+			"some-other-annotation":            "ignored",
+		},
+		labels: map[string]string{
+			"team":         "platform",
+			"Cost-Center!": "999",     // uppercase and exclamation
+			"1st-region":   "us-east", // key starts with number
+		},
+	}
+
+	labels1 := googleCAS.buildCertificateLabels(cr1)
+
+	// Expect native k8s origin labels to be synced automatically
+	assert.Equal(t, "parent-cert", labels1["cert-manager-io_certificate-name"])
+	assert.Equal(t, "test-request", labels1["cert-manager-io_certificate-request-name"])
+	assert.Equal(t, "default", labels1["cert-manager-io_certificate-request-namespace"])
+
+	// Expect proper sanitization of K8s native metadata.labels
+	assert.Equal(t, "platform", labels1["team"])
+	assert.Equal(t, "999", labels1["cost-center_"])
+	assert.Equal(t, "us-east", labels1["l-1st-region"]) // Key must be prepended with l-
+
+	// Test case: Max Label Truncation natively
+	bigLabels := make(map[string]string)
+	for i := range 70 {
+		bigLabels[fmt.Sprintf("key-%d", i)] = "val"
+	}
+
+	cr2 := &mockCR{
+		name:      "massive-label-request",
+		namespace: "default",
+		labels:    bigLabels,
+	}
+
+	labels2 := googleCAS.buildCertificateLabels(cr2)
+	assert.LessOrEqual(t, len(labels2), 60) // Should truncate above 60 keys natively downstream
+
+	// Explicitly assert that the provenance metadata unconditionally survived the 60-label truncation!
+	assert.Equal(t, "massive-label-request", labels2["cert-manager-io_certificate-request-name"])
+	assert.Equal(t, "default", labels2["cert-manager-io_certificate-request-namespace"])
 }

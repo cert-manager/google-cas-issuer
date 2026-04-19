@@ -301,6 +301,44 @@ NAME                                     TYPE                                  D
 secret/demo-cert-tls                     kubernetes.io/tls                     3      1m
 ```
 
+### Metadata Propagation (Label Sync)
+
+The Google CAS Issuer automatically synchronizes Kubernetes metadata to the issued certificates in Google Cloud CAS using **Labels**.
+
+#### Automatic Synchronization of Labels
+
+Any labels defined in the `metadata.labels` section of a `Certificate` (or `CertificateRequest`) are automatically propagated to the Google CAS certificate.
+
+*   **Sanitization**: Kubernetes labels are automatically sanitized to meet GCP's strict requirements (lowercase, alphanumeric, dashes, or underscores; max 63 characters).
+*   **Key Mapping**: If a label key starts with a non-alphabetic character (like a number), it is automatically prefixed with `l-` to comply with GCP API constraints.
+
+#### Operational Provenance Labels
+
+In addition to custom labels, the issuer automatically injects the following provenance metadata into every issued certificate:
+
+*   `cert-manager-io_certificate-name`: The name of the parent `Certificate` resource.
+*   `cert-manager-io_certificate-request-name`: The name of the `CertificateRequest` resource.
+*   `cert-manager-io_certificate-request-namespace`: The namespace where the request originated.
+
+#### Example
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: my-app-cert
+  namespace: production
+  labels:
+    # These will appear in the Google Cloud CAS Console
+    team: "platform-identity"
+    cost-center: "442"
+spec:
+  secretName: my-app-cert-tls
+  issuerRef:
+    name: googlecasclusterissuer-sample
+    kind: GoogleCASClusterIssuer
+```
+
 ## Continuous Integration
 
 This project uses GitHub Actions to run continuous integration tests.
