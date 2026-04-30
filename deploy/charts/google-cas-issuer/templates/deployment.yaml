@@ -41,7 +41,7 @@ spec:
       {{- end }}
       containers:
       - name: {{ include "cert-manager-google-cas-issuer.name" . }}
-        image: "{{ template "image" (tuple .Values.image $.Chart.AppVersion) }}"
+        image: {{ include "cert-manager-google-cas-issuer.image" (tuple .Values.image .Values.imageRegistry .Values.imageNamespace (printf ":%s" .Chart.AppVersion)) | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
         - containerPort: {{ .Values.app.metrics.port }}
