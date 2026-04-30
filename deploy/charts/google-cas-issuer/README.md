@@ -10,6 +10,25 @@
 
 Override the "cert-manager-google-cas-issuer.name" value.
 
+#### **imageRegistry** ~ `string`
+> Default value:
+> ```yaml
+> quay.io
+> ```
+
+The container registry used for google-cas-issuer images by default. This can include path prefixes (e.g. "artifactory.example.com/docker").
+
+#### **imageNamespace** ~ `string`
+> Default value:
+> ```yaml
+> jetstack
+> ```
+
+The repository namespace used for google-cas-issuer images by default.  
+Examples:  
+- jetstack  
+- cert-manager
+
 #### **crds.enabled** ~ `bool`
 > Default value:
 > ```yaml
@@ -32,38 +51,49 @@ This option makes it so that the "helm.sh/resource-policy": keep annotation is a
 > ```
 
 Number of replicas of google-cas-issuer to run.
+#### **image.registry** ~ `string`
+
+Deprecated: per-component registry prefix.  
+  
+If set, this value is *prepended* to the image repository that the chart would otherwise render. This applies both when `image.repository` is set and when the repository is computed from  
+`imageRegistry` + `imageNamespace` + `image.name`.  
+  
+This can produce "double registry" style references such as  
+`legacy.example.io/quay.io/jetstack/...`. Prefer using the global  
+`imageRegistry`/`imageNamespace` values.
+
+#### **image.name** ~ `string`
+> Default value:
+> ```yaml
+> cert-manager-google-cas-issuer
+> ```
+
+The image name for google-cas-issuer.  
+This is used (together with `imageRegistry` and `imageNamespace`) to construct the full image reference.
+
 #### **image.repository** ~ `string`
 > Default value:
 > ```yaml
-> quay.io/jetstack/cert-manager-google-cas-issuer
+> ""
 > ```
 
-Target image repository.
-#### **image.registry** ~ `unknown`
-> Default value:
-> ```yaml
-> null
-> ```
+Full repository override (takes precedence over `imageRegistry`, `imageNamespace`, and  
+`image.name`).  
+Example: quay.io/jetstack/cert-manager-google-cas-issuer
 
-Target image registry. Will be prepended to the target image repositry if set.
-#### **image.tag** ~ `unknown`
-> Default value:
-> ```yaml
-> null
-> ```
+#### **image.tag** ~ `string`
 
-Target image version tag. Defaults to the chart's appVersion.
-#### **image.digest** ~ `unknown`
-> Default value:
-> ```yaml
-> null
-> ```
+Override the image tag to deploy by setting this variable. If no value is set, the chart's appVersion is used.
 
-Target image digest. Will override any tag if set. for example:
+#### **image.digest** ~ `string`
+
+Target image digest. Override any tag, if set.  
+For example:
 
 ```yaml
 digest: sha256:0e072dddd1f7f8fc8909a2ca6f65e76c5f0d2fcfb8be47935ae3457e8bbceb20
 ```
+
 #### **image.pullPolicy** ~ `string`
 > Default value:
 > ```yaml
