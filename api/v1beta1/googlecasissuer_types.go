@@ -48,6 +48,24 @@ type GoogleCASIssuerSpec struct {
 	// +optional
 	CertificateTemplate string `json:"certificateTemplate,omitempty"`
 
+	// SecondaryCaPoolId is the id of a fallback CA pool to issue certificates from if the primary pool fails
+	// +optional
+	SecondaryCaPoolId string `json:"secondaryCaPoolId,omitempty"`
+
+	// SecondaryLocation is the Google Cloud Project Location for the secondary CA pool.
+	// +optional
+	SecondaryLocation string `json:"secondaryLocation,omitempty"`
+
+	// SecondaryCertificateTemplate is specific certificate template to
+	// +optional
+	SecondaryCertificateTemplate string `json:"secondaryCertificateTemplate,omitempty"`
+
+	// SecondaryCertificateAuthorityId is specific certificate authority from the fallback CA pool to
+	// use to sign. Omit in order to load balance across all CAs
+	// in the pool
+	// +optional
+	SecondaryCertificateAuthorityId string `json:"secondaryCertificateAuthorityId,omitempty"`
+
 	// CAFetchMode controls how the CA certificate chain is fetched and constructed.
 	// Possible values: "CA" (default), "PoolCAs".
 	// "CA": ca.crt contains root CA certificate of the Certificate Authority Service CA that has issued the certificate.
