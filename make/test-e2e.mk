@@ -60,4 +60,6 @@ test-e2e: test-e2e-deps | kind-cluster $(NEEDS_GINKGO)
 		./test/e2e/ \
 		-- \
 		--kubeconfig $(CURDIR)/$(kind_kubeconfig) \
-		--project jetstack-cas --location europe-west1 --capoolid issuer-e2e
+		--project jetstack-cas --location europe-west1 --capoolid issuer-e2e \
+		$(if $(SECONDARY_CA_POOL_ID),--secondary-capoolid $(SECONDARY_CA_POOL_ID)) \
+		$(if $(SECONDARY_LOCATION),--secondary-location $(SECONDARY_LOCATION))

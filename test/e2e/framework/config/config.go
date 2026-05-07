@@ -32,6 +32,10 @@ type Config struct {
 	Project  string
 	Location string
 	CaPoolId string
+
+	// Secondary CA pool config for failover tests (optional)
+	SecondaryCaPoolId string
+	SecondaryLocation string
 }
 
 var (
@@ -51,6 +55,8 @@ func (c *Config) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.Project, "project", "", "GCP project name")
 	fs.StringVar(&c.Location, "location", "", "GCP project location")
 	fs.StringVar(&c.CaPoolId, "capoolid", "", "CA pool ID")
+	fs.StringVar(&c.SecondaryCaPoolId, "secondary-capoolid", "", "Secondary CA pool ID for failover tests (optional)")
+	fs.StringVar(&c.SecondaryLocation, "secondary-location", "", "Secondary CA pool location for failover tests (optional)")
 }
 
 func (c *Config) Validate() error {
