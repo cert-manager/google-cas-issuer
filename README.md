@@ -256,6 +256,54 @@ spec:
 kubectl apply -f googlecasclusterissuer-sample.yaml
 ```
 
+### Failover / Secondary CA Pool (High Availability)
+
+You can configure a secondary CA pool for automatic failover. If the primary CA pool fails to issue a certificate (e.g., due to a regional outage or quota exhaustion), the controller will automatically retry using the secondary pool.
+
+All secondary fields are **optional** — if omitted, the issuer behaves exactly as before.
+
+```yaml
+apiVersion: cas-issuer.jetstack.io/v1beta1
+kind: GoogleCASIssuer
+metadata:
+  name: ha-issuer
+spec:
+  project: $PROJECT_ID
+  location: us-east1
+  caPoolId: primary-pool
+  certificateTemplate: projects/$PROJECT_ID/locations/us-east1/certificateTemplates/my-template
+  credentials:
+    name: "googlesa"
+    key: "$PROJECT_ID-key.json"
+  # Failover configuration (all optional)
+  secondaryCaPoolId: dr-pool
+  secondaryLocation: us-west1
+  secondaryCertificateTemplate: projects/$PROJECT_ID/locations/us-west1/certificateTemplates/dr-template
+  # secondaryCertificateAuthorityId: ""  # omit to load balance across all CAs in the secondary pool
+```
+
+**Required secondary fields for failover to activate:**
+| Field | Description |
+|-------|-------------|
+| `secondaryCaPoolId` | CA pool ID for the fallback pool |
+| `secondaryLocation` | GCP location of the fallback pool (independent from primary) |
+| `secondaryCertificateTemplate` | Certificate template for the fallback pool |
+
+**Optional:**
+| Field | Description |
+|-------|-------------|
+| `secondaryCertificateAuthorityId` | Specific CA within the fallback pool. Omit to load balance across all CAs. |
+
+> **IAM:** The service account must have `roles/privateca.certificateRequester` on **both** the primary and secondary CA pools.
+>
+> ```shell
+> # Grant access to the secondary pool
+> gcloud privateca pools add-iam-policy-binding dr-pool \
+>   --role=roles/privateca.certificateRequester \
+>   --member="serviceAccount:sa-google-cas-issuer@$PROJECT_ID.iam.gserviceaccount.com" \
+>   --location=us-west1
+> ```
+
 ### Creating your first certificate
 
 You can now create certificates as normal, but ensure the `IssuerRef` is set to the `GoogleCASIssuer` or `GoogleCASClusterIssuer` created in the previous step.

@@ -81,17 +81,34 @@ spec:
   credentials:
     name: {{ .SecretName }}
     key: "{{ .SecretKey }}"`
+
+	issuerWithFallbackYAML string = `apiVersion: cas-issuer.jetstack.io/v1beta1
+kind: GoogleCASIssuer
+metadata:
+  name: {{ .Name }}
+  namespace: {{ .Namespace }}
+spec:
+  project: {{ .Project }}
+  location: {{ .Location }}
+  caPoolId: {{ .Pool }}
+  credentials:
+    name: {{ .SecretName }}
+    key: "{{ .SecretKey }}"
+  secondaryCaPoolId: {{ .SecondaryPool }}
+  secondaryLocation: {{ .SecondaryLocation }}
 )
 
 type templateConfig struct {
-	Name        string
-	Namespace   string
-	Project     string
-	Location    string
-	Pool        string
-	SecretName  string
-	SecretKey   string
-	CAFetchMode string
+	Name              string
+	Namespace         string
+	Project           string
+	Location          string
+	Pool              string
+	SecretName        string
+	SecretKey         string
+	CAFetchMode       string
+	SecondaryPool     string
+	SecondaryLocation string
 }
 
 var _ = framework.CasesDescribe("issuers", func() {
@@ -343,6 +360,184 @@ var _ = framework.CasesDescribe("issuers", func() {
 
 		By("Verifying ca.crt contains multiple CA certificates from pool")
 		err = f.Helper().VerifyMultiplePoolCAs(cfg.Namespace, certName)
+		Expect(err).NotTo(HaveOccurred())
+	})
+		
+	It("Tests Issuer failover to secondary CA pool", func() {
+		if cfg.SecondaryCaPoolId == "" || cfg.SecondaryLocation == "" {
+			Skip("--secondary-capoolid and --secondary-location are required, skipping failover test")
+		}
+
+		By("Creating Google Cloud Credentials Secret")
+		data, err := os.ReadFile(os.Getenv("TEST_GOOGLE_APPLICATION_CREDENTIALS"))
+		Expect(err).NotTo(HaveOccurred())
+		secret, err := f.KubeClientSet.CoreV1().Secrets(cfg.Namespace).Create(
+			context.TODO(),
+			&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "google-credentials-",
+					Namespace:    cfg.Namespace,
+				},
+				Type: corev1.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"google.json": data,
+				},
+			},
+			metav1.CreateOptions{},
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Constructing an issuer with invalid primary and valid secondary CA pool")
+		t := &templateConfig{
+			Name:              "issuer-failover-" + util.RandomString(5),
+			Namespace:         cfg.Namespace,
+			Project:           cfg.Project,
+			Location:          cfg.Location,
+			Pool:              "nonexistent-pool-" + util.RandomString(5),
+			SecretName:        secret.Name,
+			SecretKey:         "google.json",
+			SecondaryPool:     cfg.SecondaryCaPoolId,
+			SecondaryLocation: cfg.SecondaryLocation,
+		}
+		buf := &bytes.Buffer{}
+		err = template.Must(template.New("issuer-failover").Parse(issuerWithFallbackYAML)).Execute(buf, t)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Creating dynamic object")
+		dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+		apiObject := &unstructured.Unstructured{}
+		_, gvk, err := dec.Decode(buf.Bytes(), nil, apiObject)
+		Expect(err).NotTo(HaveOccurred())
+		mapping, err := f.Mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		Expect(err).NotTo(HaveOccurred())
+
+		dr := f.DynamicClientSet.Resource(mapping.Resource)
+
+		By("Creating issuer " + t.Namespace + "/" + t.Name)
+		_, err = dr.Namespace(t.Namespace).Create(context.TODO(), apiObject, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for issuer to become ready")
+		err = f.Helper().WaitForUnstructuredReady(dr, t.Name, t.Namespace, 30*time.Second)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Creating a certificate (should be issued via secondary CA pool)")
+		certName := "casissuer-failover-e2e-" + util.RandomString(5)
+		_, err = f.CMClientSet.CertmanagerV1().Certificates(cfg.Namespace).Create(context.TODO(), &certmanagerv1.Certificate{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      certName,
+				Namespace: cfg.Namespace,
+			},
+			Spec: certmanagerv1.CertificateSpec{
+				SecretName:  certName,
+				CommonName:  certName,
+				DNSNames:    []string{certName, "e2etests.invalid"},
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 8 * time.Hour},
+				IssuerRef: cmmetav1.ObjectReference{
+					Name:  t.Name,
+					Kind:  gvk.Kind,
+					Group: gvk.Group,
+				},
+			},
+		}, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for certificate to become ready")
+		_, err = f.Helper().WaitForCertificateReady(cfg.Namespace, certName, 30*time.Second)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Verifying chain and CA")
+		err = f.Helper().VerifyCMCertificate(cfg.Namespace, certName)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("Tests Issuer with secondary CA pool configured", func() {
+		if cfg.SecondaryCaPoolId == "" || cfg.SecondaryLocation == "" {
+			Skip("--secondary-capoolid and --secondary-location are required, skipping secondary pool test")
+		}
+
+		By("Creating Google Cloud Credentials Secret")
+		data, err := os.ReadFile(os.Getenv("TEST_GOOGLE_APPLICATION_CREDENTIALS"))
+		Expect(err).NotTo(HaveOccurred())
+		secret, err := f.KubeClientSet.CoreV1().Secrets(cfg.Namespace).Create(
+			context.TODO(),
+			&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "google-credentials-",
+					Namespace:    cfg.Namespace,
+				},
+				Type: corev1.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"google.json": data,
+				},
+			},
+			metav1.CreateOptions{},
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Constructing an issuer with both primary and secondary CA pools")
+		t := &templateConfig{
+			Name:              "issuer-secondary-" + util.RandomString(5),
+			Namespace:         cfg.Namespace,
+			Project:           cfg.Project,
+			Location:          cfg.Location,
+			Pool:              cfg.CaPoolId,
+			SecretName:        secret.Name,
+			SecretKey:         "google.json",
+			SecondaryPool:     cfg.SecondaryCaPoolId,
+			SecondaryLocation: cfg.SecondaryLocation,
+		}
+		buf := &bytes.Buffer{}
+		err = template.Must(template.New("issuer-secondary").Parse(issuerWithFallbackYAML)).Execute(buf, t)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Creating dynamic object")
+		dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+		apiObject := &unstructured.Unstructured{}
+		_, gvk, err := dec.Decode(buf.Bytes(), nil, apiObject)
+		Expect(err).NotTo(HaveOccurred())
+		mapping, err := f.Mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		Expect(err).NotTo(HaveOccurred())
+
+		dr := f.DynamicClientSet.Resource(mapping.Resource)
+
+		By("Creating issuer " + t.Namespace + "/" + t.Name)
+		_, err = dr.Namespace(t.Namespace).Create(context.TODO(), apiObject, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for issuer to become ready")
+		err = f.Helper().WaitForUnstructuredReady(dr, t.Name, t.Namespace, 10*time.Second)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Creating a certificate (should be issued via primary CA pool)")
+		certName := "casissuer-secondary-e2e-" + util.RandomString(5)
+		_, err = f.CMClientSet.CertmanagerV1().Certificates(cfg.Namespace).Create(context.TODO(), &certmanagerv1.Certificate{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      certName,
+				Namespace: cfg.Namespace,
+			},
+			Spec: certmanagerv1.CertificateSpec{
+				SecretName:  certName,
+				CommonName:  certName,
+				DNSNames:    []string{certName, "e2etests.invalid"},
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 8 * time.Hour},
+				IssuerRef: cmmetav1.ObjectReference{
+					Name:  t.Name,
+					Kind:  gvk.Kind,
+					Group: gvk.Group,
+				},
+			},
+		}, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Waiting for certificate to become ready")
+		_, err = f.Helper().WaitForCertificateReady(cfg.Namespace, certName, 10*time.Second)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Verifying chain and CA")
+		err = f.Helper().VerifyCMCertificate(cfg.Namespace, certName)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

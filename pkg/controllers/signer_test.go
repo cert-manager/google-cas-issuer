@@ -65,6 +65,106 @@ func TestBuildParentStringMissingPoolId(t *testing.T) {
 	}
 }
 
+
+func TestBuildSecondaryParentString(t *testing.T) {
+	spec := &v1beta1.GoogleCASIssuerSpec{
+		Project:           "test-project",
+		SecondaryLocation: "secondary-location",
+		SecondaryCaPoolId: "secondary-pool",
+	}
+	parent, err := buildSecondaryParentString(spec)
+	if err != nil {
+		t.Errorf("buildSecondaryParentString returned an error: %s", err.Error())
+	}
+	if got, want := parent, fmt.Sprintf("projects/%s/locations/%s/caPools/%s", spec.Project, spec.SecondaryLocation, spec.SecondaryCaPoolId); got != want {
+		t.Errorf("Wrong parent: %s != %s", got, want)
+	}
+}
+
+func TestBuildSecondaryParentStringMissingLocation(t *testing.T) {
+	spec := &v1beta1.GoogleCASIssuerSpec{
+		Project:           "test-project",
+		SecondaryLocation: "",
+		SecondaryCaPoolId: "secondary-pool",
+	}
+	_, err := buildSecondaryParentString(spec)
+	if err == nil {
+		t.Error("buildSecondaryParentString didn't return an error")
+	}
+	if got, want := err.Error(), "must specify a SecondaryLocation"; got != want {
+		t.Errorf("Wrong error: %s != %s", got, want)
+	}
+}
+
+func TestBuildSecondaryParentStringMissingPoolId(t *testing.T) {
+	spec := &v1beta1.GoogleCASIssuerSpec{
+		Project:           "test-project",
+		SecondaryLocation: "secondary-location",
+		SecondaryCaPoolId: "",
+	}
+	_, err := buildSecondaryParentString(spec)
+	if err == nil {
+		t.Error("buildSecondaryParentString didn't return an error")
+	}
+	if got, want := err.Error(), "must specify a SecondaryCaPoolId"; got != want {
+		t.Errorf("Wrong error: %s != %s", got, want)
+	}
+}
+
+func TestHasFallbackConfig(t *testing.T) {
+	tests := []struct {
+		name string
+		spec *v1beta1.GoogleCASIssuerSpec
+		want bool
+	}{
+		{
+			name: "all secondary fields set",
+			spec: &v1beta1.GoogleCASIssuerSpec{
+				SecondaryCaPoolId:            "pool",
+				SecondaryLocation:            "location",
+				SecondaryCertificateTemplate: "template",
+			},
+			want: true,
+		},
+		{
+			name: "missing SecondaryCaPoolId",
+			spec: &v1beta1.GoogleCASIssuerSpec{
+				SecondaryLocation:            "location",
+				SecondaryCertificateTemplate: "template",
+			},
+			want: false,
+		},
+		{
+			name: "missing SecondaryLocation",
+			spec: &v1beta1.GoogleCASIssuerSpec{
+				SecondaryCaPoolId:            "pool",
+				SecondaryCertificateTemplate: "template",
+			},
+			want: false,
+		},
+		{
+			name: "missing SecondaryCertificateTemplate",
+			spec: &v1beta1.GoogleCASIssuerSpec{
+				SecondaryCaPoolId: "pool",
+				SecondaryLocation: "location",
+			},
+			want: false,
+		},
+		{
+			name: "all secondary fields empty",
+			spec: &v1beta1.GoogleCASIssuerSpec{},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := hasFallbackConfig(tt.spec)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestExtractCertAndCA(t *testing.T) {
 	type expected struct {
 		cert []byte
