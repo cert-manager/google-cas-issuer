@@ -177,51 +177,55 @@ func (o *GoogleCAS) Sign(ctx context.Context, cr signer.CertificateRequestObject
 }
 
 // createCertificateWithFallback attempts to create a certificate using the primary CA pool.
-// If the primary attempt fails and a secondary CA pool is configured, it retries using the
-// fallback pool. Returns the certificate response, the parent string of the pool that
+// If the primary attempt fails and fallback CA pools are configured, it retries each
+// fallback in order. Returns the certificate response, the parent string of the pool that
 // successfully signed (for use in subsequent FetchCaCerts calls), and any error.
 func createCertificateWithFallback(
 	ctx context.Context,
 	casClient *privateca.CertificateAuthorityClient,
 	req *casapi.CreateCertificateRequest,
-	primaryParent string,
+	parent string,
 	issuerSpec *issuersv1beta1.GoogleCASIssuerSpec,
 ) (*casapi.Certificate, string, error) {
+
 	resp, err := casClient.CreateCertificate(ctx, req)
 	if err == nil {
-		return resp, primaryParent, nil
+		return resp, parent, nil
 	}
 
-	ctrl.LoggerFrom(ctx).Error(err, "casClient.CreateCertificate failed on primary CA pool")
-
-	// Fail fast if fallback is not configured
-	if !hasFallbackConfig(issuerSpec) {
-		return nil, "", fmt.Errorf("casClient.CreateCertificate failed (no fallback configured): %w", err)
+	// Fail fast if no fallbacks are configured
+	if len(issuerSpec.Fallbacks) == 0 {
+		return nil, "", fmt.Errorf("casClient.CreateCertificate failed (no fallbacks configured): %w", err)
 	}
 
-	secondaryParent, buildErr := buildSecondaryParentString(issuerSpec)
-	if buildErr != nil {
-		return nil, "", fmt.Errorf("failed to build fallback parent string: %v (primary error: %w)", buildErr, err)
+	// Try each fallback in order
+	var allErrs []error
+	allErrs = append(allErrs, fmt.Errorf("casClient.CreateCertificate failed on Primary CA pool %s: %w", parent, err))
+
+	for i, fb := range issuerSpec.Fallbacks {
+		fbParent, fbBuildErr := buildFallbackParentString(fb)
+		if fbBuildErr != nil {
+			allErrs = append(allErrs, fmt.Errorf("fallback[%d] build parent error: %w", i, fbBuildErr))
+			continue
+		}
+
+		req.CertificateId = fmt.Sprintf("cert-manager-%d", rand.Int())
+		req.Parent = fbParent
+		req.Certificate.CertificateTemplate = fb.CertificateTemplate
+		req.IssuingCertificateAuthorityId = fb.CertificateAuthorityId
+		req.RequestId = uuid.New().String()
+
+		resp, fbCertErr := casClient.CreateCertificate(ctx, req)
+		if fbCertErr != nil {
+			allErrs = append(allErrs, fmt.Errorf("fallback[%d] (%s) failed: %w", i, fbParent, fbCertErr))
+			continue
+		}
+
+		return resp, fbParent, nil
 	}
 
-	req.Parent = secondaryParent
-	req.Certificate.CertificateTemplate = issuerSpec.SecondaryCertificateTemplate
-	req.IssuingCertificateAuthorityId = issuerSpec.SecondaryCertificateAuthorityId
-
-	resp, fallbackErr := casClient.CreateCertificate(ctx, req)
-	if fallbackErr != nil {
-		return nil, "", fmt.Errorf("casClient.CreateCertificate failed on fallback CA pool: %w (primary error: %v)", fallbackErr, err)
-	}
-
-	ctrl.LoggerFrom(ctx).Info("Successfully signed certificate using fallback CA pool")
-	return resp, secondaryParent, nil
+	return nil, "", fmt.Errorf("casClient.CreateCertificate failed on Primary and all Fallback CA pools: %w", errors.Join(allErrs...))
 }
-
-// hasFallbackConfig returns true if all required secondary CA pool fields are set.
-func hasFallbackConfig(spec *issuersv1beta1.GoogleCASIssuerSpec) bool {
-	return spec.SecondaryCaPoolId != "" && spec.SecondaryLocation != "" && spec.SecondaryCertificateTemplate != ""
-}
-
 
 func buildParentString(issuerSpec *issuersv1beta1.GoogleCASIssuerSpec) (string, error) {
 	if issuerSpec.Project == "" {
@@ -239,22 +243,20 @@ func buildParentString(issuerSpec *issuersv1beta1.GoogleCASIssuerSpec) (string, 
 	return parent, nil
 }
 
-func buildSecondaryParentString(issuerSpec *issuersv1beta1.GoogleCASIssuerSpec) (string, error) {
-	if issuerSpec.Project == "" {
-		return "", signer.PermanentError{Err: fmt.Errorf("must specify a Project")}
+func buildFallbackParentString(fb issuersv1beta1.FallbackCAPool) (string, error) {
+	if fb.Project == "" {
+		return "", signer.PermanentError{Err: fmt.Errorf("must specify a Project in fallback")}
 	}
-	
-	if issuerSpec.SecondaryLocation == "" {
-		return "", signer.PermanentError{Err: fmt.Errorf("must specify a SecondaryLocation")}
+	if fb.Location == "" {
+		return "", signer.PermanentError{Err: fmt.Errorf("must specify a Location in fallback")}
 	}
-
-	if issuerSpec.SecondaryCaPoolId == "" {
-		return "", signer.PermanentError{Err: fmt.Errorf("must specify a SecondaryCaPoolId")}
+	if fb.CaPoolId == "" {
+		return "", signer.PermanentError{Err: fmt.Errorf("must specify a CaPoolId in fallback")}
 	}
 
-	parent := fmt.Sprintf("projects/%s/locations/%s/caPools/%s", issuerSpec.Project, issuerSpec.SecondaryLocation, issuerSpec.SecondaryCaPoolId)
+	fbParent := fmt.Sprintf("projects/%s/locations/%s/caPools/%s", fb.Project, fb.Location, fb.CaPoolId)
 
-	return parent, nil
+	return fbParent, nil
 }
 
 func (c *GoogleCAS) createCasClient(ctx context.Context, resourceNamespace string, issuerSpec *issuersv1beta1.GoogleCASIssuerSpec) (*privateca.CertificateAuthorityClient, string, error) {
