@@ -61,5 +61,6 @@ test-e2e: test-e2e-deps | kind-cluster $(NEEDS_GINKGO)
 		-- \
 		--kubeconfig $(CURDIR)/$(kind_kubeconfig) \
 		--project jetstack-cas --location europe-west1 --capoolid issuer-e2e \
-		$(if $(SECONDARY_CA_POOL_ID),--secondary-capoolid $(SECONDARY_CA_POOL_ID)) \
-		$(if $(SECONDARY_LOCATION),--secondary-location $(SECONDARY_LOCATION))
+		$(if $(FALLBACK_PROJECT),--fallback-project $(FALLBACK_PROJECT)) \
+		$(if $(FALLBACK_CA_POOL_ID),--fallback-capoolid $(FALLBACK_CA_POOL_ID)) \
+		$(if $(FALLBACK_LOCATION),--fallback-location $(FALLBACK_LOCATION))
