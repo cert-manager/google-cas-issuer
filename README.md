@@ -145,6 +145,7 @@ gcloud privateca pools add-iam-policy-binding my-pool --role=roles/privateca.poo
 ```
 
 
+
 ### Multi-tenancy and security considerations
 
 > [!IMPORTANT]
@@ -159,6 +160,7 @@ To keep tenants isolated:
 - **Scope the controller's IAM to only the pools you intend to expose.** Bind `roles/privateca.certificateRequester` per pool (as shown above), not at project or folder scope. Broader grants widen the blast radius to every pool in that scope.
 - **Restrict who can create issuer and certificate objects.** Use Kubernetes RBAC to limit `create` on `googlecasissuers.cas-issuer.jetstack.io` and `certificaterequests.cert-manager.io` in tenant namespaces.
 - **Prefer explicit per-tenant credentials when tenants must target distinct pools.** Give each tenant a `spec.credentials` Secret referencing a service account scoped to only their pool, rather than relying on the shared ambient identity.
+
 
 #### Inside GKE with workload identity
 
@@ -271,11 +273,11 @@ spec:
 kubectl apply -f googlecasclusterissuer-sample.yaml
 ```
 
-### Failover / Secondary CA Pool (High Availability)
+### Failover / Fallback CA Pools (High Availability)
 
-You can configure a secondary CA pool for automatic failover. If the primary CA pool fails to issue a certificate (e.g., due to a regional outage or quota exhaustion), the controller will automatically retry using the secondary pool.
+You can configure one or more fallback CA pools for automatic failover. If the primary CA pool fails to issue a certificate (e.g., due to a regional outage or quota exhaustion), the controller will automatically try each fallback pool in order until one succeeds.
 
-All secondary fields are **optional** — if omitted, the issuer behaves exactly as before.
+All fallback configuration is **optional** — if omitted, the issuer behaves exactly as before.
 
 ```yaml
 apiVersion: cas-issuer.jetstack.io/v1beta1
@@ -290,34 +292,32 @@ spec:
   credentials:
     name: "googlesa"
     key: "$PROJECT_ID-key.json"
-  # Failover configuration (all optional)
-  secondaryCaPoolId: dr-pool
-  secondaryLocation: us-west1
-  secondaryCertificateTemplate: projects/$PROJECT_ID/locations/us-west1/certificateTemplates/dr-template
-  # secondaryCertificateAuthorityId: ""  # omit to load balance across all CAs in the secondary pool
+  # Fallback configuration (optional, supports multiple entries)
+  fallbacks:
+    - project: $PROJECT_ID # same project, different region
+      caPoolId: dr-pool
+      location: us-west1
+      # certificateAuthorityId: ""  # omit to load balance across all CAs
+    - project: backup-project # different GCP project
+      caPoolId: eu-backup-pool
+      location: europe-west1
+      certificateTemplate: projects/backup-project/locations/europe-west1/certificateTemplates/eu-template
 ```
 
-**Required secondary fields for failover to activate:**
+**Each fallback entry requires:**
 | Field | Description |
 |-------|-------------|
-| `secondaryCaPoolId` | CA pool ID for the fallback pool |
-| `secondaryLocation` | GCP location of the fallback pool (independent from primary) |
-| `secondaryCertificateTemplate` | Certificate template for the fallback pool |
+| `project` | GCP project ID for this fallback pool |
+| `caPoolId` | CA pool ID for the fallback pool |
+| `location` | GCP location of the fallback pool |
 
-**Optional:**
+**Optional per fallback:**
 | Field | Description |
 |-------|-------------|
-| `secondaryCertificateAuthorityId` | Specific CA within the fallback pool. Omit to load balance across all CAs. |
+| `certificateTemplate` | Certificate template for the fallback pool |
+| `certificateAuthorityId` | Specific CA within the fallback pool. Omit to load balance across all CAs. |
 
-> **IAM:** The service account must have `roles/privateca.certificateRequester` on **both** the primary and secondary CA pools.
->
-> ```shell
-> # Grant access to the secondary pool
-> gcloud privateca pools add-iam-policy-binding dr-pool \
->   --role=roles/privateca.certificateRequester \
->   --member="serviceAccount:sa-google-cas-issuer@$PROJECT_ID.iam.gserviceaccount.com" \
->   --location=us-west1
-> ```
+> **IAM:** The service account must have `roles/privateca.certificateRequester` on **all** configured CA pools (primary and all fallbacks).
 
 ### Creating your first certificate
 
@@ -368,6 +368,7 @@ secret/demo-cert-tls                     kubernetes.io/tls                     3
 
 This project uses GitHub Actions to run continuous integration tests.
 There are two required test workflows:
+
 - `run_unit_tests` - this runs automatically on every pull request
 - `run_e2e_tests` - this runs on a pull request when the `ok-to-test` label is added  
-**⚠️ IMPORTANT: A maintainer must add this label manually after verifying that the commits in your PR are non-malicious. Ping a maintainer when your PR is ready. This label has to be re-added every time a change is made in the PR.**
+  **⚠️ IMPORTANT: A maintainer must add this label manually after verifying that the commits in your PR are non-malicious. Ping a maintainer when your PR is ready. This label has to be re-added every time a change is made in the PR.**
