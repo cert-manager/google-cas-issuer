@@ -7,7 +7,7 @@ require (
 	github.com/cert-manager/cert-manager v1.20.0
 	github.com/cert-manager/issuer-lib v0.10.0
 	github.com/google/uuid v1.6.0
-	github.com/onsi/ginkgo/v2 v2.29.0
+	github.com/onsi/ginkgo/v2 v2.30.0
 	github.com/onsi/gomega v1.41.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
