@@ -243,6 +243,26 @@ nodeAffinity:
 Kubernetes pod tolerations for google-cas-issuer  
 For example:  
  - operator: "Exists"
+#### **topologySpreadConstraints** ~ `array`
+> Default value:
+> ```yaml
+> []
+> ```
+
+List of Kubernetes TopologySpreadConstraints.  
+  
+For example:
+
+```yaml
+topologySpreadConstraints:
+- maxSkew: 2
+  topologyKey: topology.kubernetes.io/zone
+  whenUnsatisfiable: ScheduleAnyway
+  labelSelector:
+    matchLabels:
+      app.kubernetes.io/instance: cert-manager
+      app.kubernetes.io/component: controller
+```
 #### **priorityClassName** ~ `string`
 > Default value:
 > ```yaml

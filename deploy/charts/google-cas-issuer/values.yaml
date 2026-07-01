@@ -149,6 +149,19 @@ affinity: {}
 #  - operator: "Exists"
 tolerations: []
 
+# List of Kubernetes TopologySpreadConstraints.
+#
+# For example:
+#   topologySpreadConstraints:
+#   - maxSkew: 2
+#     topologyKey: topology.kubernetes.io/zone
+#     whenUnsatisfiable: ScheduleAnyway
+#     labelSelector:
+#       matchLabels:
+#         app.kubernetes.io/instance: cert-manager
+#         app.kubernetes.io/component: controller
+topologySpreadConstraints: []
+
 # Optional priority class to be used for the google-cas-issuer pods.
 priorityClassName: ""
 
