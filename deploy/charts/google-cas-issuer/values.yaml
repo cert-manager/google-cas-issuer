@@ -155,3 +155,10 @@ priorityClassName: ""
 # Override the "cert-manager-google-cas-issuer.name" value.
 # +docs:property
 # nameOverride: "my-google-cas-issuer"
+
+# Field to optionally disable installation of the chart when wrapping it as a
+# dependency in another chart.
+# This matches the Helm best practices:
+# https://helm.sh/docs/chart_best_practices/dependencies/#conditions-and-tags
+# +docs:hidden
+enabled: true

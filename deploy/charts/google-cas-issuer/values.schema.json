@@ -18,6 +18,9 @@
         "deploymentAnnotations": {
           "$ref": "#/$defs/helm-values.deploymentAnnotations"
         },
+        "enabled": {
+          "$ref": "#/$defs/helm-values.enabled"
+        },
         "global": {
           "$ref": "#/$defs/helm-values.global"
         },
@@ -191,6 +194,11 @@
       "default": {},
       "description": "Optional additional annotations to add to the google-cas-issuer Deployment",
       "type": "object"
+    },
+    "helm-values.enabled": {
+      "default": true,
+      "description": "Field to optionally disable installation of the chart when wrapping it as a dependency in another chart.\nThis matches the Helm best practices:\nhttps://helm.sh/docs/chart_best_practices/dependencies/#conditions-and-tags",
+      "type": "boolean"
     },
     "helm-values.global": {
       "description": "Global values shared across all (sub)charts"
