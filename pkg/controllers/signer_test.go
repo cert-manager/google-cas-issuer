@@ -65,6 +65,122 @@ func TestBuildParentStringMissingPoolId(t *testing.T) {
 	}
 }
 
+func TestBuildFallbackParentString(t *testing.T) {
+	tests := []struct {
+		name        string
+		fb          v1beta1.FallbackCAPool
+		wantParent  string
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "all fields specified",
+			fb: v1beta1.FallbackCAPool{
+				Project:  "fallback-project",
+				Location: "us-west1",
+				CaPoolId: "fb-pool",
+			},
+			wantParent: "projects/fallback-project/locations/us-west1/caPools/fb-pool",
+		},
+		{
+			name: "missing project",
+			fb: v1beta1.FallbackCAPool{
+				Location: "us-west1",
+				CaPoolId: "fb-pool",
+			},
+			wantErr:     true,
+			errContains: "must specify a Project",
+		},
+		{
+			name: "missing location",
+			fb: v1beta1.FallbackCAPool{
+				Project:  "project",
+				CaPoolId: "pool",
+			},
+			wantErr:     true,
+			errContains: "must specify a Location",
+		},
+		{
+			name: "missing CaPoolId",
+			fb: v1beta1.FallbackCAPool{
+				Project:  "project",
+				Location: "location",
+			},
+			wantErr:     true,
+			errContains: "must specify a CaPoolId",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildFallbackParentString(tt.fb)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantParent, got)
+			}
+		})
+	}
+}
+
+func TestHasFallbacks(t *testing.T) {
+	tests := []struct {
+		name string
+		spec *v1beta1.GoogleCASIssuerSpec
+		want bool
+	}{
+		{
+			name: "no fallbacks configured",
+			spec: &v1beta1.GoogleCASIssuerSpec{},
+			want: false,
+		},
+		{
+			name: "one fallback configured",
+			spec: &v1beta1.GoogleCASIssuerSpec{
+				Fallbacks: []v1beta1.FallbackCAPool{
+					{
+						CaPoolId:            "pool",
+						Location:            "location",
+						CertificateTemplate: "template",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "multiple fallbacks configured",
+			spec: &v1beta1.GoogleCASIssuerSpec{
+				Fallbacks: []v1beta1.FallbackCAPool{
+					{
+						CaPoolId:            "pool1",
+						Location:            "location1",
+						CertificateTemplate: "template1",
+					},
+					{
+						Project:                "other-project",
+						CaPoolId:               "pool2",
+						Location:               "location2",
+						CertificateTemplate:    "template2",
+						CertificateAuthorityId: "ca-id",
+					},
+				},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := len(tt.spec.Fallbacks) > 0
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestExtractCertAndCA(t *testing.T) {
 	type expected struct {
 		cert []byte

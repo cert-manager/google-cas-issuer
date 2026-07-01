@@ -48,12 +48,39 @@ type GoogleCASIssuerSpec struct {
 	// +optional
 	CertificateTemplate string `json:"certificateTemplate,omitempty"`
 
+	// Fallbacks is an ordered list of fallback CA pools to try if the primary pool fails.
+	// The controller will attempt each fallback in order until one succeeds.
+	// +optional
+	Fallbacks []FallbackCAPool `json:"fallbacks,omitempty"`
+
 	// CAFetchMode controls how the CA certificate chain is fetched and constructed.
 	// Possible values: "CA" (default), "PoolCAs".
 	// "CA": ca.crt contains root CA certificate of the Certificate Authority Service CA that has issued the certificate.
 	// "PoolCAs": ca.crt contains all root CA certificates of all ENABLED, DISABLED, or STAGED Certificate Authority Service CA Pool CAs that are not expired.
 	// +optional
 	CAFetchMode CAFetchMode `json:"caFetchMode,omitempty"`
+}
+
+// FallbackCAPool defines a fallback CA pool configuration for failover.
+// If the primary CA pool fails, the controller will attempt each fallback in order.
+type FallbackCAPool struct {
+	// Project is the Google Cloud Project ID for this fallback pool.
+	Project string `json:"project"`
+
+	// CaPoolId is the CA pool ID for the fallback pool.
+	CaPoolId string `json:"caPoolId"`
+
+	// Location is the Google Cloud location of the fallback pool.
+	Location string `json:"location"`
+
+	// CertificateTemplate is the certificate template to use with this fallback pool.
+	// +optional
+	CertificateTemplate string `json:"certificateTemplate,omitempty"`
+	
+	// CertificateAuthorityId is a specific certificate authority within the fallback pool.
+	// Omit to load balance across all CAs in the pool.
+	// +optional
+	CertificateAuthorityId string `json:"certificateAuthorityId,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=CA;PoolCAs
