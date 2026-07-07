@@ -6,10 +6,6 @@
 
 <!-- AUTO-GENERATED -->
 
-#### **nameOverride** ~ `string`
-
-Override the "cert-manager-google-cas-issuer.name" value.
-
 #### **imageRegistry** ~ `string`
 > Default value:
 > ```yaml
@@ -270,5 +266,9 @@ topologySpreadConstraints:
 > ```
 
 Optional priority class to be used for the google-cas-issuer pods.
+#### **nameOverride** ~ `string`
+
+Override the "cert-manager-google-cas-issuer.name" value.
+
 
 <!-- /AUTO-GENERATED -->
