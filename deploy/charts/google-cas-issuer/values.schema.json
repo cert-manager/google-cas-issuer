@@ -59,6 +59,9 @@
         },
         "tolerations": {
           "$ref": "#/$defs/helm-values.tolerations"
+        },
+        "topologySpreadConstraints": {
+          "$ref": "#/$defs/helm-values.topologySpreadConstraints"
         }
       },
       "type": "object"
@@ -313,6 +316,12 @@
     "helm-values.tolerations": {
       "default": [],
       "description": "Kubernetes pod tolerations for google-cas-issuer\nFor example:\n - operator: \"Exists\"",
+      "items": {},
+      "type": "array"
+    },
+    "helm-values.topologySpreadConstraints": {
+      "default": [],
+      "description": "List of Kubernetes TopologySpreadConstraints.\n\nFor example:\ntopologySpreadConstraints:\n- maxSkew: 2\n  topologyKey: topology.kubernetes.io/zone\n  whenUnsatisfiable: ScheduleAnyway\n  labelSelector:\n    matchLabels:\n      app.kubernetes.io/instance: cert-manager\n      app.kubernetes.io/component: controller",
       "items": {},
       "type": "array"
     }
