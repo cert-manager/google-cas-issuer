@@ -117,6 +117,10 @@ podAnnotations: {}
 # Optional additional labels to add to the google-cas-issuer Pods
 podLabels: {}
 
+# Automounting API credentials for the google-cas-issuer pod.
+# +docs:property
+automountServiceAccountToken: true
+
 # Kubernetes pod resource requests/limits for google-cas-issuer.
 # For example:
 #  limits:
