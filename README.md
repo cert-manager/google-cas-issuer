@@ -145,6 +145,21 @@ gcloud privateca pools add-iam-policy-binding my-pool --role=roles/privateca.poo
 ```
 
 
+### Multi-tenancy and security considerations
+
+> [!IMPORTANT]
+> The CAS Issuer authenticates to Google Cloud as a **single identity**. When a `GoogleCASIssuer` or `GoogleCASClusterIssuer` omits `spec.credentials`, it falls back to the controller's ambient credentials (Application Default Credentials / GKE Workload Identity) — the controller pod's own service account, which is shared across every issuer and namespace in the cluster.
+
+The `spec.project`, `spec.location`, and `spec.caPoolId` fields are author-supplied and are not restricted to an allow-list. An issuer that uses the ambient credentials can therefore target **any CA pool that the controller's service account can reach**. The effective security boundary is the IAM scope you grant that service account, not the issuer object itself.
+
+In a shared cluster this has a consequence worth noting: if the controller's service account is granted access to multiple teams' CA pools, then anyone who can create (or reference) a `GoogleCASIssuer` and a `CertificateRequest` can obtain certificates signed by any of those pools — including a pool they were never intended to use. cert-manager's approval step gates *whether* a request is signed, not *which* identity signs it, so it does not change this boundary.
+
+To keep tenants isolated:
+
+- **Scope the controller's IAM to only the pools you intend to expose.** Bind `roles/privateca.certificateRequester` per pool (as shown above), not at project or folder scope. Broader grants widen the blast radius to every pool in that scope.
+- **Restrict who can create issuer and certificate objects.** Use Kubernetes RBAC to limit `create` on `googlecasissuers.cas-issuer.jetstack.io` and `certificaterequests.cert-manager.io` in tenant namespaces.
+- **Prefer explicit per-tenant credentials when tenants must target distinct pools.** Give each tenant a `spec.credentials` Secret referencing a service account scoped to only their pool, rather than relying on the shared ambient identity.
+
 #### Inside GKE with workload identity
 
 [Workload identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity) lets you bind a
