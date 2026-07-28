@@ -192,6 +192,11 @@ func createCertificateWithFallback(
 	if err == nil {
 		return resp, parent, nil
 	}
+	log := ctrl.LoggerFrom(ctx)
+	log.Info("Primary CA pool signing failed; triggering failover to fallback pools",
+		"primaryPool", parent,
+		"error", err,
+	)
 
 	// Fail fast if no fallbacks are configured
 	if len(issuerSpec.Fallbacks) == 0 {
@@ -203,7 +208,7 @@ func createCertificateWithFallback(
 	allErrs = append(allErrs, fmt.Errorf("casClient.CreateCertificate failed on Primary CA pool %s: %w", parent, err))
 
 	for i, fb := range issuerSpec.Fallbacks {
-		fbParent, fbBuildErr := buildFallbackParentString(fb)
+		fbParent, fbBuildErr := buildParentString(fb)
 		if fbBuildErr != nil {
 			allErrs = append(allErrs, fmt.Errorf("fallback[%d] build parent error: %w", i, fbBuildErr))
 			continue
@@ -227,36 +232,20 @@ func createCertificateWithFallback(
 	return nil, "", fmt.Errorf("casClient.CreateCertificate failed on Primary and all Fallback CA pools: %w", errors.Join(allErrs...))
 }
 
-func buildParentString(issuerSpec *issuersv1beta1.GoogleCASIssuerSpec) (string, error) {
-	if issuerSpec.Project == "" {
+func buildParentString(ref issuersv1beta1.CAPoolReference) (string, error) {
+	if ref.GetProject() == "" {
 		return "", signer.PermanentError{Err: fmt.Errorf("must specify a Project")}
 	}
-	if issuerSpec.Location == "" {
+	if ref.GetLocation() == "" {
 		return "", signer.PermanentError{Err: fmt.Errorf("must specify a Location")}
 	}
-	if issuerSpec.CaPoolId == "" {
+	if ref.GetCaPoolId() == "" {
 		return "", signer.PermanentError{Err: fmt.Errorf("must specify a CaPoolId")}
 	}
 
-	parent := fmt.Sprintf("projects/%s/locations/%s/caPools/%s", issuerSpec.Project, issuerSpec.Location, issuerSpec.CaPoolId)
+	parent := fmt.Sprintf("projects/%s/locations/%s/caPools/%s", ref.GetProject(), ref.GetLocation(), ref.GetCaPoolId())
 
 	return parent, nil
-}
-
-func buildFallbackParentString(fb issuersv1beta1.FallbackCAPool) (string, error) {
-	if fb.Project == "" {
-		return "", signer.PermanentError{Err: fmt.Errorf("must specify a Project in fallback")}
-	}
-	if fb.Location == "" {
-		return "", signer.PermanentError{Err: fmt.Errorf("must specify a Location in fallback")}
-	}
-	if fb.CaPoolId == "" {
-		return "", signer.PermanentError{Err: fmt.Errorf("must specify a CaPoolId in fallback")}
-	}
-
-	fbParent := fmt.Sprintf("projects/%s/locations/%s/caPools/%s", fb.Project, fb.Location, fb.CaPoolId)
-
-	return fbParent, nil
 }
 
 func (c *GoogleCAS) createCasClient(ctx context.Context, resourceNamespace string, issuerSpec *issuersv1beta1.GoogleCASIssuerSpec) (*privateca.CertificateAuthorityClient, string, error) {
