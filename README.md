@@ -145,7 +145,6 @@ gcloud privateca pools add-iam-policy-binding my-pool --role=roles/privateca.poo
 ```
 
 
-
 ### Multi-tenancy and security considerations
 
 > [!IMPORTANT]
@@ -160,7 +159,6 @@ To keep tenants isolated:
 - **Scope the controller's IAM to only the pools you intend to expose.** Bind `roles/privateca.certificateRequester` per pool (as shown above), not at project or folder scope. Broader grants widen the blast radius to every pool in that scope.
 - **Restrict who can create issuer and certificate objects.** Use Kubernetes RBAC to limit `create` on `googlecasissuers.cas-issuer.jetstack.io` and `certificaterequests.cert-manager.io` in tenant namespaces.
 - **Prefer explicit per-tenant credentials when tenants must target distinct pools.** Give each tenant a `spec.credentials` Secret referencing a service account scoped to only their pool, rather than relying on the shared ambient identity.
-
 
 #### Inside GKE with workload identity
 
@@ -368,7 +366,6 @@ secret/demo-cert-tls                     kubernetes.io/tls                     3
 
 This project uses GitHub Actions to run continuous integration tests.
 There are two required test workflows:
-
 - `run_unit_tests` - this runs automatically on every pull request
 - `run_e2e_tests` - this runs on a pull request when the `ok-to-test` label is added  
-  **⚠️ IMPORTANT: A maintainer must add this label manually after verifying that the commits in your PR are non-malicious. Ping a maintainer when your PR is ready. This label has to be re-added every time a change is made in the PR.**
+**⚠️ IMPORTANT: A maintainer must add this label manually after verifying that the commits in your PR are non-malicious. Ping a maintainer when your PR is ready. This label has to be re-added every time a change is made in the PR.**

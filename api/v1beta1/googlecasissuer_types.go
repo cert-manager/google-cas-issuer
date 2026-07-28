@@ -95,6 +95,36 @@ const (
 	CAFetchModePoolCAs CAFetchMode = "PoolCAs"
 )
 
+type CAPoolReference interface {
+	GetProject() string
+	GetLocation() string
+	GetCaPoolId() string
+}
+
+func (s *GoogleCASIssuerSpec) GetProject() string {
+		return s.Project
+}
+
+func (s *GoogleCASIssuerSpec) GetLocation() string {
+		return s.Location
+}
+
+func (s *GoogleCASIssuerSpec) GetCaPoolId() string {
+		return s.CaPoolId
+}
+
+func (f FallbackCAPool) GetProject() string  { 
+		return f.Project
+}
+
+func (f FallbackCAPool) GetLocation() string { 
+		return f.Location
+}
+
+func (f FallbackCAPool) GetCaPoolId() string { 
+		return f.CaPoolId
+}
+
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="reason",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].reason"
