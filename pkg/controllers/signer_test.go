@@ -29,8 +29,8 @@ import (
 	"testing"
 	"time"
 
+	casapi "cloud.google.com/go/security/privateca/apiv1/privatecapb"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/genproto/googleapis/cloud/security/privateca/v1"
 
 	"github.com/cert-manager/google-cas-issuer/api/v1beta1"
 )
@@ -90,7 +90,7 @@ V94=
 
 	testData := []struct {
 		name     string
-		input    *privateca.Certificate
+		input    *casapi.Certificate
 		expected expected
 	}{
 		{
@@ -102,7 +102,7 @@ V94=
 		},
 		{
 			name: "cert signed directly by a CA returns single leaf, single root",
-			input: &privateca.Certificate{
+			input: &casapi.Certificate{
 				PemCertificate: `-----BEGIN CERTIFICATE-----
 MIIBtjCCAVwCCQDkGWfHQC96wTAJBgcqhkjOPQQBMGYxJzAlBgNVBAoTHm1rY2Vy
 dCBkZXZlbG9wbWVudCBjZXJ0aWZpY2F0ZTE7MDkGA1UECwwyamFrZXhrc0AwMFdL
@@ -135,7 +135,7 @@ z5B9C4cjanJ67w==
 		},
 		{
 			name: "the bottom most certificate ends up in the CA field (trivially)",
-			input: &privateca.Certificate{
+			input: &casapi.Certificate{
 				PemCertificate: `-----BEGIN CERTIFICATE-----
 leaf
 -----END CERTIFICATE-----`,
@@ -189,48 +189,48 @@ func TestFilterAndDeduplicateCAs(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		caChains []*privateca.FetchCaCertsResponse_CertChain
+		caChains []*casapi.FetchCaCertsResponse_CertChain
 		want     []string // substrings we expect in output
 		dontWant []string // substrings we expect NOT in output
 	}{
 		{
 			name: "Valid Root CA",
-			caChains: []*privateca.FetchCaCertsResponse_CertChain{
+			caChains: []*casapi.FetchCaCertsResponse_CertChain{
 				{Certificates: []string{rootCA}},
 			},
 			want: []string{strings.TrimSpace(rootCA)},
 		},
 		{
 			name: "Expired Root CA",
-			caChains: []*privateca.FetchCaCertsResponse_CertChain{
+			caChains: []*casapi.FetchCaCertsResponse_CertChain{
 				{Certificates: []string{expiredRoot}},
 			},
 			dontWant: []string{strings.TrimSpace(expiredRoot)},
 		},
 		{
 			name: "Non-CA Certificate",
-			caChains: []*privateca.FetchCaCertsResponse_CertChain{
+			caChains: []*casapi.FetchCaCertsResponse_CertChain{
 				{Certificates: []string{nonCA}},
 			},
 			dontWant: []string{strings.TrimSpace(nonCA)},
 		},
 		{
 			name: "Intermediate CA (Subject != Issuer)",
-			caChains: []*privateca.FetchCaCertsResponse_CertChain{
+			caChains: []*casapi.FetchCaCertsResponse_CertChain{
 				{Certificates: []string{intermediate}},
 			},
 			dontWant: []string{strings.TrimSpace(intermediate)},
 		},
 		{
 			name: "Deduplication",
-			caChains: []*privateca.FetchCaCertsResponse_CertChain{
+			caChains: []*casapi.FetchCaCertsResponse_CertChain{
 				{Certificates: []string{rootCA, duplicateRoot}},
 			},
 			want: []string{strings.TrimSpace(rootCA)},
 		},
 		{
 			name: "Multiple Valid Roots",
-			caChains: []*privateca.FetchCaCertsResponse_CertChain{
+			caChains: []*casapi.FetchCaCertsResponse_CertChain{
 				{Certificates: []string{rootCA, differentRoot}},
 			},
 			want: []string{strings.TrimSpace(rootCA), strings.TrimSpace(differentRoot)},
