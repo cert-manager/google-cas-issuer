@@ -162,7 +162,7 @@ var _ = framework.CasesDescribe("issuers", func() {
 				DNSNames:    []string{certName, "e2etests.invalid"},
 				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
 				RenewBefore: &metav1.Duration{Duration: 8 * time.Hour},
-				IssuerRef: cmmetav1.ObjectReference{
+				IssuerRef: cmmetav1.IssuerReference{
 					Name:  t.Name,
 					Kind:  gvk.Kind,
 					Group: gvk.Group,
@@ -244,7 +244,7 @@ var _ = framework.CasesDescribe("issuers", func() {
 				DNSNames:    []string{certName, "e2etests.invalid"},
 				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
 				RenewBefore: &metav1.Duration{Duration: 8 * time.Hour},
-				IssuerRef: cmmetav1.ObjectReference{
+				IssuerRef: cmmetav1.IssuerReference{
 					Name:  t.Name,
 					Kind:  gvk.Kind,
 					Group: gvk.Group,
@@ -328,7 +328,7 @@ var _ = framework.CasesDescribe("issuers", func() {
 				DNSNames:    []string{certName, "e2etests.invalid"},
 				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
 				RenewBefore: &metav1.Duration{Duration: 8 * time.Hour},
-				IssuerRef: cmmetav1.ObjectReference{
+				IssuerRef: cmmetav1.IssuerReference{
 					Name:  t.Name,
 					Kind:  gvk.Kind,
 					Group: gvk.Group,
