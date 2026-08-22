@@ -15,18 +15,32 @@ Create chart name and version as used by the chart label.
 
 {{/*
 Common labels
+
+Merged as a map (rather than concatenated YAML) so that a key set in
+.Values.commonLabels can never collide with, and duplicate, a key set here -
+which would otherwise produce invalid YAML. Our own values always win on
+conflict so that selector-critical labels like "app" can't be overridden by
+commonLabels.
 */}}
 {{- define "cert-manager-google-cas-issuer.labels" -}}
-app.kubernetes.io/name: {{ include "cert-manager-google-cas-issuer.name" . }}
-helm.sh/chart: {{ include "cert-manager-google-cas-issuer.chart" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
+{{- $labels := dict
+  "app" (include "cert-manager-google-cas-issuer.name" .)
+  "app.kubernetes.io/name" (include "cert-manager-google-cas-issuer.name" .)
+  "helm.sh/chart" (include "cert-manager-google-cas-issuer.chart" .)
+  "app.kubernetes.io/instance" .Release.Name
+  "app.kubernetes.io/managed-by" .Release.Service
+-}}
 {{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- $labels = set $labels "app.kubernetes.io/version" (.Chart.AppVersion | toString) }}
 {{- end }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
-{{- if .Values.commonLabels}}
-{{ toYaml .Values.commonLabels }}
+{{- if .Values.commonLabels }}
+{{- $labels = mergeOverwrite (deepCopy .Values.commonLabels) $labels }}
 {{- end }}
+{{- $lines := list -}}
+{{- range $k, $v := $labels -}}
+{{- $lines = append $lines (printf "%s: %s" $k ($v | quote)) -}}
+{{- end -}}
+{{ join "\n" $lines }}
 {{- end -}}
 
 {{/*
