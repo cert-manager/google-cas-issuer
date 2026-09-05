@@ -182,6 +182,14 @@ Optional additional annotations to add to the google-cas-issuer Pods
 > ```
 
 Optional additional labels to add to the google-cas-issuer Pods
+#### **automountServiceAccountToken** ~ `bool`
+> Default value:
+> ```yaml
+> true
+> ```
+
+Automounting API credentials for the google-cas-issuer pod.
+
 #### **resources** ~ `object`
 > Default value:
 > ```yaml
