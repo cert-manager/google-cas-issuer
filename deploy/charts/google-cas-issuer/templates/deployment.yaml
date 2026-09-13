@@ -17,10 +17,18 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "cert-manager-google-cas-issuer.labels" . | nindent 8 }}
-        {{- with .Values.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        {{- /*
+          Merged as one map so no key can be emitted twice. "app" is listed
+          first and so wins: it is the selector label above, and a pod label
+          that does not match spec.selector.matchLabels is rejected by the
+          API server. .Values.podLabels wins over .Values.commonLabels.
+        */}}
+        {{- $podLabels := merge
+              (dict "app" (include "cert-manager-google-cas-issuer.name" .))
+              (.Values.podLabels | default dict)
+              (include "cert-manager-google-cas-issuer.labels" . | fromYaml)
+        -}}
+        {{- toYaml $podLabels | nindent 8 }}
       {{- with .Values.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}

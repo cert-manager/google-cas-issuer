@@ -16,31 +16,26 @@ Create chart name and version as used by the chart label.
 {{/*
 Common labels
 
-Merged as a map (rather than concatenated YAML) so that a key set in
-.Values.commonLabels can never collide with, and duplicate, a key set here -
-which would otherwise produce invalid YAML. Our own values always win on
-conflict so that selector-critical labels like "app" can't be overridden by
-commonLabels.
+Labels are merged as a map, not concatenated as YAML text, so a key in
+.Values.commonLabels cannot produce a duplicate key. On conflict
+.Values.commonLabels wins. The selector label "app" is not set here; it is
+applied in deployment.yaml, where it must match spec.selector.matchLabels.
+
+IMPORTANT: This function is standardized across all charts in the cert-manager GH organization.
+Any changes to this function should also be made in cert-manager, trust-manager, approver-policy, ...
+See https://github.com/cert-manager/cert-manager/issues/6329 for a list of linked PRs.
 */}}
 {{- define "cert-manager-google-cas-issuer.labels" -}}
 {{- $labels := dict
-  "app" (include "cert-manager-google-cas-issuer.name" .)
   "app.kubernetes.io/name" (include "cert-manager-google-cas-issuer.name" .)
   "helm.sh/chart" (include "cert-manager-google-cas-issuer.chart" .)
   "app.kubernetes.io/instance" .Release.Name
   "app.kubernetes.io/managed-by" .Release.Service
 -}}
 {{- if .Chart.AppVersion }}
-{{- $labels = set $labels "app.kubernetes.io/version" (.Chart.AppVersion | toString) }}
+{{- $labels = set $labels "app.kubernetes.io/version" .Chart.AppVersion }}
 {{- end }}
-{{- if .Values.commonLabels }}
-{{- $labels = mergeOverwrite (deepCopy .Values.commonLabels) $labels }}
-{{- end }}
-{{- $lines := list -}}
-{{- range $k, $v := $labels -}}
-{{- $lines = append $lines (printf "%s: %s" $k ($v | quote)) -}}
-{{- end -}}
-{{ join "\n" $lines }}
+{{- toYaml (mergeOverwrite $labels (.Values.commonLabels | default dict)) }}
 {{- end -}}
 
 {{/*
