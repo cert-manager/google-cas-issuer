@@ -18,15 +18,19 @@ spec:
     metadata:
       labels:
         {{- /*
-          Merged as one map so no key can be emitted twice. "app" is listed
-          first and so wins: it is the selector label above, and a pod label
-          that does not match spec.selector.matchLabels is rejected by the
-          API server. .Values.podLabels wins over .Values.commonLabels.
+          Merged as one map so no key can be emitted twice. Sources are listed
+          lowest precedence first, so .Values.podLabels wins over
+          .Values.commonLabels and "app" wins over both: "app" is the selector
+          label above, and a pod label that does not match
+          spec.selector.matchLabels is rejected by the API server.
+
+          mergeOverwrite, not merge: merge skips empty source values, so an
+          intentionally empty podLabels value would lose to commonLabels.
         */}}
-        {{- $podLabels := merge
-              (dict "app" (include "cert-manager-google-cas-issuer.name" .))
-              (.Values.podLabels | default dict)
+        {{- $podLabels := mergeOverwrite
               (include "cert-manager-google-cas-issuer.labels" . | fromYaml)
+              (.Values.podLabels | default dict)
+              (dict "app" (include "cert-manager-google-cas-issuer.name" .))
         -}}
         {{- toYaml $podLabels | nindent 8 }}
       {{- with .Values.podAnnotations }}

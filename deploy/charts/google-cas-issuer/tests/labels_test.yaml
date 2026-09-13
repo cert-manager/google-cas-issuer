@@ -55,6 +55,18 @@ tests:
           value: web
         template: templates/deployment.yaml
 
+  - it: podLabels wins even when its value is empty
+    set:
+      commonLabels:
+        foo: from-common
+      podLabels:
+        foo: ""
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels.foo
+          value: ""
+        template: templates/deployment.yaml
+
   - it: commonLabels propagate to CRDs
     set:
       commonLabels:
