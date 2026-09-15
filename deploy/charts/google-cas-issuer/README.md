@@ -110,7 +110,8 @@ Optional secrets used for pulling the google-cas-issuer container image.
 > {}
 > ```
 
-Labels to apply to all resources
+Labels to apply to all resources.  
+On a key collision these win over the chart's own labels, with one exception: the "app" label on the google-cas-issuer Pods must match the Deployment's spec.selector.matchLabels, so it cannot be overridden there. It is still applied to every other resource.
 #### **serviceAccount.annotations** ~ `object`
 > Default value:
 > ```yaml
@@ -181,7 +182,7 @@ Optional additional annotations to add to the google-cas-issuer Pods
 > {}
 > ```
 
-Optional additional labels to add to the google-cas-issuer Pods
+Optional additional labels to add to the google-cas-issuer Pods. On a key collision these win over commonLabels. The "app" label cannot be overridden, because it must match the Deployment's spec.selector.matchLabels.
 #### **resources** ~ `object`
 > Default value:
 > ```yaml

@@ -1,0 +1,108 @@
+suite: Labels merge as a map without duplicate keys
+templates:
+  - templates/deployment.yaml
+  - templates/serviceaccount.yaml
+  - templates/crd-cas-issuer.jetstack.io_googlecasissuers.yaml
+release:
+  name: rel
+  namespace: cert-manager
+tests:
+  - it: commonLabels.app and podLabels.app both set — the pod template keeps a single app label matching the selector
+    set:
+      commonLabels:
+        app: from-common
+      podLabels:
+        app: from-pod
+    asserts:
+      - equal:
+          path: spec.selector.matchLabels.app
+          value: cert-manager-google-cas-issuer
+        template: templates/deployment.yaml
+      - equal:
+          path: spec.template.metadata.labels.app
+          value: cert-manager-google-cas-issuer
+        template: templates/deployment.yaml
+
+  - it: commonLabels.app still applies to resource metadata, where no selector reads it
+    set:
+      commonLabels:
+        app: from-common
+    asserts:
+      - equal:
+          path: metadata.labels.app
+          value: from-common
+        template: templates/deployment.yaml
+
+  - it: commonLabels wins over a chart-owned label
+    set:
+      commonLabels:
+        app.kubernetes.io/managed-by: argocd
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/managed-by"]
+          value: argocd
+        template: templates/serviceaccount.yaml
+
+  - it: podLabels wins over commonLabels for keys the selector does not read
+    set:
+      commonLabels:
+        tier: db
+      podLabels:
+        tier: web
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels.tier
+          value: web
+        template: templates/deployment.yaml
+
+  - it: podLabels wins even when its value is empty
+    set:
+      commonLabels:
+        foo: from-common
+      podLabels:
+        foo: ""
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels.foo
+          value: ""
+        template: templates/deployment.yaml
+
+  - it: commonLabels propagate to CRDs
+    set:
+      commonLabels:
+        team: platform
+    asserts:
+      - equal:
+          path: metadata.labels.team
+          value: platform
+        template: templates/crd-cas-issuer.jetstack.io_googlecasissuers.yaml
+
+  - it: label keys that YAML 1.1 would read as booleans stay strings
+    set:
+      commonLabels:
+        "on": alpha
+        "no": beta
+    asserts:
+      - equal:
+          path: metadata.labels["on"]
+          value: alpha
+        template: templates/serviceaccount.yaml
+      - equal:
+          path: metadata.labels["no"]
+          value: beta
+        template: templates/serviceaccount.yaml
+
+  - it: chart-owned labels are unchanged with default values
+    asserts:
+      - equal:
+          path: metadata.labels["app.kubernetes.io/name"]
+          value: cert-manager-google-cas-issuer
+        template: templates/serviceaccount.yaml
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: rel
+        template: templates/serviceaccount.yaml
+      - equal:
+          path: metadata.labels["app.kubernetes.io/managed-by"]
+          value: Helm
+        template: templates/serviceaccount.yaml

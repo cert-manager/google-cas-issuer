@@ -17,11 +17,22 @@ spec:
   template:
     metadata:
       labels:
-        app: {{ include "cert-manager-google-cas-issuer.name" . }}
-        {{- include "cert-manager-google-cas-issuer.labels" . | nindent 8 }}
-        {{- with .Values.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        {{- /*
+          Merged as one map so no key can be emitted twice. Sources are listed
+          lowest precedence first, so .Values.podLabels wins over
+          .Values.commonLabels and "app" wins over both: "app" is the selector
+          label above, and a pod label that does not match
+          spec.selector.matchLabels is rejected by the API server.
+
+          mergeOverwrite, not merge: merge skips empty source values, so an
+          intentionally empty podLabels value would lose to commonLabels.
+        */}}
+        {{- $podLabels := mergeOverwrite
+              (include "cert-manager-google-cas-issuer.labels" . | fromYaml)
+              (.Values.podLabels | default dict)
+              (dict "app" (include "cert-manager-google-cas-issuer.name" .))
+        -}}
+        {{- toYaml $podLabels | nindent 8 }}
       {{- with .Values.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
