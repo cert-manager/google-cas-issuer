@@ -57,6 +57,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # The Google Cloud auth step needs an OIDC token, and GitHub does not
+    # issue one to workflows triggered by a pull request from a fork. Skip the
+    # job there so the required check reports "skipped" (which counts as
+    # success) instead of failing before any test runs. To run e2e for a fork
+    # PR, push its branch to this repository and open a PR from that branch.
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+
     permissions:
       contents: read
       id-token: write
