@@ -60,4 +60,7 @@ test-e2e: test-e2e-deps | kind-cluster $(NEEDS_GINKGO)
 		./test/e2e/ \
 		-- \
 		--kubeconfig $(CURDIR)/$(kind_kubeconfig) \
-		--project jetstack-cas --location europe-west1 --capoolid issuer-e2e
+		--project jetstack-cas --location europe-west1 --capoolid issuer-e2e \
+		$(if $(FALLBACK_PROJECT),--fallback-project $(FALLBACK_PROJECT)) \
+		$(if $(FALLBACK_CA_POOL_ID),--fallback-capoolid $(FALLBACK_CA_POOL_ID)) \
+		$(if $(FALLBACK_LOCATION),--fallback-location $(FALLBACK_LOCATION))
