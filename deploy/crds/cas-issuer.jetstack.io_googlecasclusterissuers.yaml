@@ -99,6 +99,40 @@ spec:
               project:
                 description: Project is the Google Cloud Project ID
                 type: string
+              fallbacks:
+                description: |-
+                  Fallbacks is an ordered list of fallback CA pools. If the primary pool fails,
+                  the controller tries each fallback in order until one succeeds.
+                items:
+                  description: FallbackCAPool defines a fallback CA pool configuration
+                    for failover.
+                  properties:
+                    caPoolId:
+                      description: CaPoolId is the CA pool ID for the fallback pool.
+                      type: string
+                    certificateAuthorityId:
+                      description: |-
+                        CertificateAuthorityId is a specific certificate authority within the fallback pool.
+                        Omit to load balance across all CAs in the pool.
+                      type: string
+                    certificateTemplate:
+                      description: CertificateTemplate is the certificate template
+                        to use with this fallback pool. Omit to not specify a template
+                      type: string
+                    location:
+                      description: Location is the Google Cloud location of the fallback
+                        pool.
+                      type: string
+                    project:
+                      description: Project is the Google Cloud Project ID for this
+                        fallback pool.
+                      type: string
+                  required:
+                  - project
+                  - caPoolId
+                  - location
+                  type: object
+                type: array
             type: object
           status:
             properties:
