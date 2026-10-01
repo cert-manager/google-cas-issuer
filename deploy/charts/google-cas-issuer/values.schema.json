@@ -18,14 +18,23 @@
         "deploymentAnnotations": {
           "$ref": "#/$defs/helm-values.deploymentAnnotations"
         },
+        "enabled": {
+          "$ref": "#/$defs/helm-values.enabled"
+        },
         "global": {
           "$ref": "#/$defs/helm-values.global"
         },
         "image": {
           "$ref": "#/$defs/helm-values.image"
         },
+        "imageNamespace": {
+          "$ref": "#/$defs/helm-values.imageNamespace"
+        },
         "imagePullSecrets": {
           "$ref": "#/$defs/helm-values.imagePullSecrets"
+        },
+        "imageRegistry": {
+          "$ref": "#/$defs/helm-values.imageRegistry"
         },
         "nameOverride": {
           "$ref": "#/$defs/helm-values.nameOverride"
@@ -53,6 +62,9 @@
         },
         "tolerations": {
           "$ref": "#/$defs/helm-values.tolerations"
+        },
+        "topologySpreadConstraints": {
+          "$ref": "#/$defs/helm-values.topologySpreadConstraints"
         }
       },
       "type": "object"
@@ -156,7 +168,7 @@
     },
     "helm-values.commonLabels": {
       "default": {},
-      "description": "Labels to apply to all resources",
+      "description": "Labels to apply to all resources.\nOn a key collision these win over the chart's own labels, with one exception: the \"app\" label on the google-cas-issuer Pods must match the Deployment's spec.selector.matchLabels, so it cannot be overridden there. It is still applied to every other resource.",
       "type": "object"
     },
     "helm-values.crds": {
@@ -186,6 +198,11 @@
       "description": "Optional additional annotations to add to the google-cas-issuer Deployment",
       "type": "object"
     },
+    "helm-values.enabled": {
+      "default": true,
+      "description": "Field to optionally disable installation of the chart when wrapping it as a dependency in another chart.\nThis matches the Helm best practices:\nhttps://helm.sh/docs/chart_best_practices/dependencies/#conditions-and-tags",
+      "type": "boolean"
+    },
     "helm-values.global": {
       "description": "Global values shared across all (sub)charts"
     },
@@ -194,6 +211,9 @@
       "properties": {
         "digest": {
           "$ref": "#/$defs/helm-values.image.digest"
+        },
+        "name": {
+          "$ref": "#/$defs/helm-values.image.name"
         },
         "pullPolicy": {
           "$ref": "#/$defs/helm-values.image.pullPolicy"
@@ -211,7 +231,13 @@
       "type": "object"
     },
     "helm-values.image.digest": {
-      "description": "Target image digest. Will override any tag if set. for example:\ndigest: sha256:0e072dddd1f7f8fc8909a2ca6f65e76c5f0d2fcfb8be47935ae3457e8bbceb20"
+      "description": "Target image digest. Override any tag, if set.\nFor example:\ndigest: sha256:0e072dddd1f7f8fc8909a2ca6f65e76c5f0d2fcfb8be47935ae3457e8bbceb20",
+      "type": "string"
+    },
+    "helm-values.image.name": {
+      "default": "cert-manager-google-cas-issuer",
+      "description": "The image name for google-cas-issuer.\nThis is used (together with `imageRegistry` and `imageNamespace`) to construct the full image reference.",
+      "type": "string"
     },
     "helm-values.image.pullPolicy": {
       "default": "IfNotPresent",
@@ -219,21 +245,33 @@
       "type": "string"
     },
     "helm-values.image.registry": {
-      "description": "Target image registry. Will be prepended to the target image repositry if set."
+      "description": "Deprecated: per-component registry prefix.\n\nIf set, this value is *prepended* to the image repository that the chart would otherwise render. This applies both when `image.repository` is set and when the repository is computed from\n`imageRegistry` + `imageNamespace` + `image.name`.\n\nThis can produce \"double registry\" style references such as\n`legacy.example.io/quay.io/jetstack/...`. Prefer using the global\n`imageRegistry`/`imageNamespace` values.",
+      "type": "string"
     },
     "helm-values.image.repository": {
-      "default": "quay.io/jetstack/cert-manager-google-cas-issuer",
-      "description": "Target image repository.",
+      "default": "",
+      "description": "Full repository override (takes precedence over `imageRegistry`, `imageNamespace`, and\n`image.name`).\nExample: quay.io/jetstack/cert-manager-google-cas-issuer",
       "type": "string"
     },
     "helm-values.image.tag": {
-      "description": "Target image version tag. Defaults to the chart's appVersion."
+      "description": "Override the image tag to deploy by setting this variable. If no value is set, the chart's appVersion is used.",
+      "type": "string"
+    },
+    "helm-values.imageNamespace": {
+      "default": "jetstack",
+      "description": "The repository namespace used for google-cas-issuer images by default.\nExamples:\n- jetstack\n- cert-manager",
+      "type": "string"
     },
     "helm-values.imagePullSecrets": {
       "default": [],
       "description": "Optional secrets used for pulling the google-cas-issuer container image.",
       "items": {},
       "type": "array"
+    },
+    "helm-values.imageRegistry": {
+      "default": "quay.io",
+      "description": "The container registry used for google-cas-issuer images by default. This can include path prefixes (e.g. \"artifactory.example.com/docker\").",
+      "type": "string"
     },
     "helm-values.nameOverride": {
       "description": "Override the \"cert-manager-google-cas-issuer.name\" value.",
@@ -251,7 +289,7 @@
     },
     "helm-values.podLabels": {
       "default": {},
-      "description": "Optional additional labels to add to the google-cas-issuer Pods",
+      "description": "Optional additional labels to add to the google-cas-issuer Pods. On a key collision these win over commonLabels. The \"app\" label cannot be overridden, because it must match the Deployment's spec.selector.matchLabels.",
       "type": "object"
     },
     "helm-values.priorityClassName": {
@@ -286,6 +324,12 @@
     "helm-values.tolerations": {
       "default": [],
       "description": "Kubernetes pod tolerations for google-cas-issuer\nFor example:\n - operator: \"Exists\"",
+      "items": {},
+      "type": "array"
+    },
+    "helm-values.topologySpreadConstraints": {
+      "default": [],
+      "description": "List of Kubernetes TopologySpreadConstraints.\n\nFor example:\ntopologySpreadConstraints:\n- maxSkew: 2\n  topologyKey: topology.kubernetes.io/zone\n  whenUnsatisfiable: ScheduleAnyway\n  labelSelector:\n    matchLabels:\n      app.kubernetes.io/instance: cert-manager\n      app.kubernetes.io/component: controller",
       "items": {},
       "type": "array"
     }

@@ -44,6 +44,8 @@ helm_chart_sources := $(shell find $(helm_chart_source_dir) -maxdepth 1 -type f)
 helm_chart_archive := $(bin_dir)/scratch/helm/$(helm_chart_name)-$(helm_chart_version).tgz
 helm_digest_path := $(bin_dir)/scratch/helm/$(helm_chart_name)-$(helm_chart_version).digests
 helm_digest = $(shell head -1 $(helm_digest_path) 2> /dev/null)
+HELM_IGNORE_FIELDS ?= ^Pulled:|^Digest:|app.kubernetes.io/version|helm.sh/chart|chart:|appVersion:|managed-by:|meta.helm.sh/release-namespace
+helm_chart_old_version ?=
 
 $(bin_dir)/scratch/helm:
 	@mkdir -p $@
@@ -119,15 +121,32 @@ shared_verify_targets += verify-helm-values
 ## Run Helm chart unit tests using helm-unittest.
 ## @category [shared] Generate/ Verify
 verify-helm-unittest: | $(NEEDS_HELM-UNITTEST)
-	$(HELM-UNITTEST) $(helm_chart_source_dir)
+	$(HELM-UNITTEST) -f 'tests/**/*.yaml' $(helm_chart_source_dir)
 
 shared_verify_targets += verify-helm-unittest
 
 $(bin_dir)/scratch/kyverno:
 	@mkdir -p $@
 
-$(bin_dir)/scratch/kyverno/pod-security-policy.yaml: | $(NEEDS_KUSTOMIZE) $(bin_dir)/scratch/kyverno
-	@$(KUSTOMIZE) build https://github.com/kyverno/policies/pod-security/enforce > $@
+# The commit of kyverno/policies to build the pod-security policies from.
+# Pinned because https://github.com/kyverno/policies/pull/1544 deleted pod-security/
+# from main; it was superseded by the CEL policies in pod-security-vpol/, see
+# https://github.com/kyverno/policies/issues/1543.
+#
+# This is the tip of the release-1.19 branch, one of the last commits that still
+# has pod-security/. The branch name does not matter: the pod-security/ bundle is
+# identical on every release branch from release-1.12 to release-1.19, and each
+# policy declares kyverno 1.6.0 as its minimum version. The release branches are
+# snapshots for the kyverno.io website, not compatibility boundaries. So this
+# does not need to change when the kyverno tool in modules/tools is bumped.
+kyverno_policies_version := ef9843f08d25b3555fe69616f8612c9f915af5d4
+
+# The version is part of the file name, so a change to it builds a new file
+# instead of reusing a stale cached one.
+kyverno_policy_file := $(bin_dir)/scratch/kyverno/pod-security-policy-$(kyverno_policies_version).yaml
+
+$(kyverno_policy_file): | $(NEEDS_KUSTOMIZE) $(bin_dir)/scratch/kyverno
+	@$(KUSTOMIZE) build "https://github.com/kyverno/policies/pod-security/enforce?ref=$(kyverno_policies_version)" > $@
 
 # Extra arguments for kyverno apply.
 kyverno_apply_extra_args :=
@@ -166,9 +185,9 @@ endif
 ## security policy rules.
 ##
 ## @category [shared] Generate/ Verify
-verify-pod-security-standards: $(helm_chart_archive) $(bin_dir)/scratch/kyverno/pod-security-policy.yaml | $(NEEDS_KYVERNO) $(NEEDS_HELM)
+verify-pod-security-standards: $(helm_chart_archive) $(kyverno_policy_file) | $(NEEDS_KYVERNO) $(NEEDS_HELM)
 	@$(HELM) template $(helm_chart_archive) $(INSTALL_OPTIONS) \
-	| $(KYVERNO) apply $(bin_dir)/scratch/kyverno/pod-security-policy.yaml \
+	| $(KYVERNO) apply $(kyverno_policy_file) \
 		$(kyverno_apply_extra_args) \
 		--resource - \
 		--table
@@ -195,3 +214,19 @@ verify-helm-kubeconform: $(helm_chart_archive) | $(NEEDS_KUBECONFORM)
 		-strict
 
 shared_verify_targets_dirty += verify-helm-kubeconform
+
+## Diff the locally built Helm chart against a released version,
+## ignoring version-label noise. Set helm_chart_old_version to the
+## previously released chart version to compare against.
+## @category [shared] Helm Chart
+.PHONY: helm-diff
+helm-diff: $(helm_chart_archive) | $(NEEDS_HELM)
+	@if [ -z "$(helm_chart_old_version)" ]; then \
+		echo "Usage: make helm-diff helm_chart_old_version=<version>"; \
+		exit 1; \
+	fi
+	@$(HELM) show chart "oci://$(helm_chart_image_registry)$(helm_chart_name)" --version "$(helm_chart_old_version)" > /dev/null
+	@diff -u \
+		<($(HELM) template "oci://$(helm_chart_image_registry)$(helm_chart_name)" --version "$(helm_chart_old_version)" $(INSTALL_OPTIONS) | grep -vE -- '$(HELM_IGNORE_FIELDS)') \
+		<($(HELM) template "$(helm_chart_archive)" $(INSTALL_OPTIONS) | grep -vE -- '$(HELM_IGNORE_FIELDS)') \
+		|| [ $$? -eq 1 ]

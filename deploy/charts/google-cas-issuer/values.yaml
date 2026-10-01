@@ -1,3 +1,15 @@
+# The container registry used for google-cas-issuer images by default.
+# This can include path prefixes (e.g. "artifactory.example.com/docker").
+# +docs:property
+imageRegistry: quay.io
+
+# The repository namespace used for google-cas-issuer images by default.
+# Examples:
+# - jetstack
+# - cert-manager
+# +docs:property
+imageNamespace: jetstack
+
 crds:
   # This option decides if the CRDs should be installed
   # as part of the Helm installation.
@@ -14,18 +26,40 @@ crds:
 replicaCount: 1
 
 image:
-  # Target image repository.
-  repository: quay.io/jetstack/cert-manager-google-cas-issuer
-  # Target image registry. Will be prepended to the target image repositry if set.
-  registry:
+  # Deprecated: per-component registry prefix.
+  #
+  # If set, this value is *prepended* to the image repository that the chart would otherwise render.
+  # This applies both when `image.repository` is set and when the repository is computed from
+  # `imageRegistry` + `imageNamespace` + `image.name`.
+  #
+  # This can produce "double registry" style references such as
+  # `legacy.example.io/quay.io/jetstack/...`. Prefer using the global
+  # `imageRegistry`/`imageNamespace` values.
+  # +docs:property
+  # registry: quay.io
 
-  # Target image version tag. Defaults to the chart's appVersion.
-  tag:
+  # The image name for google-cas-issuer.
+  # This is used (together with `imageRegistry` and `imageNamespace`) to construct the full
+  # image reference.
+  # +docs:property
+  name: cert-manager-google-cas-issuer
 
-  # Target image digest. Will override any tag if set.
-  # for example:
-  # digest: sha256:0e072dddd1f7f8fc8909a2ca6f65e76c5f0d2fcfb8be47935ae3457e8bbceb20
-  digest:
+  # Full repository override (takes precedence over `imageRegistry`, `imageNamespace`, and
+  # `image.name`).
+  # Example: quay.io/jetstack/cert-manager-google-cas-issuer
+  # +docs:property
+  repository: ""
+
+  # Override the image tag to deploy by setting this variable.
+  # If no value is set, the chart's appVersion is used.
+  # +docs:property
+  # tag: vX.Y.Z
+
+  # Target image digest. Override any tag, if set.
+  # For example:
+  #   digest: sha256:0e072dddd1f7f8fc8909a2ca6f65e76c5f0d2fcfb8be47935ae3457e8bbceb20
+  # +docs:property
+  # digest: sha256:...
 
   # Kubernetes imagePullPolicy on Deployment.
   pullPolicy: IfNotPresent
@@ -33,7 +67,11 @@ image:
 # Optional secrets used for pulling the google-cas-issuer container image.
 imagePullSecrets: []
 
-# Labels to apply to all resources
+# Labels to apply to all resources.
+# On a key collision these win over the chart's own labels, with one exception:
+# the "app" label on the google-cas-issuer Pods must match the Deployment's
+# spec.selector.matchLabels, so it cannot be overridden there. It is still
+# applied to every other resource.
 commonLabels: {}
 
 serviceAccount:
@@ -80,7 +118,9 @@ deploymentAnnotations: {}
 # Optional additional annotations to add to the google-cas-issuer Pods
 podAnnotations: {}
 
-# Optional additional labels to add to the google-cas-issuer Pods
+# Optional additional labels to add to the google-cas-issuer Pods.
+# On a key collision these win over commonLabels. The "app" label cannot be
+# overridden, because it must match the Deployment's spec.selector.matchLabels.
 podLabels: {}
 
 # Kubernetes pod resource requests/limits for google-cas-issuer.
@@ -115,9 +155,29 @@ affinity: {}
 #  - operator: "Exists"
 tolerations: []
 
+# List of Kubernetes TopologySpreadConstraints.
+#
+# For example:
+#   topologySpreadConstraints:
+#   - maxSkew: 2
+#     topologyKey: topology.kubernetes.io/zone
+#     whenUnsatisfiable: ScheduleAnyway
+#     labelSelector:
+#       matchLabels:
+#         app.kubernetes.io/instance: cert-manager
+#         app.kubernetes.io/component: controller
+topologySpreadConstraints: []
+
 # Optional priority class to be used for the google-cas-issuer pods.
 priorityClassName: ""
 
 # Override the "cert-manager-google-cas-issuer.name" value.
 # +docs:property
 # nameOverride: "my-google-cas-issuer"
+
+# Field to optionally disable installation of the chart when wrapping it as a
+# dependency in another chart.
+# This matches the Helm best practices:
+# https://helm.sh/docs/chart_best_practices/dependencies/#conditions-and-tags
+# +docs:hidden
+enabled: true

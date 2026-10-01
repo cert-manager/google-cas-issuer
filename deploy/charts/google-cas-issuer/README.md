@@ -6,9 +6,24 @@
 
 <!-- AUTO-GENERATED -->
 
-#### **nameOverride** ~ `string`
+#### **imageRegistry** ~ `string`
+> Default value:
+> ```yaml
+> quay.io
+> ```
 
-Override the "cert-manager-google-cas-issuer.name" value.
+The container registry used for google-cas-issuer images by default. This can include path prefixes (e.g. "artifactory.example.com/docker").
+
+#### **imageNamespace** ~ `string`
+> Default value:
+> ```yaml
+> jetstack
+> ```
+
+The repository namespace used for google-cas-issuer images by default.  
+Examples:  
+- jetstack  
+- cert-manager
 
 #### **crds.enabled** ~ `bool`
 > Default value:
@@ -32,38 +47,49 @@ This option makes it so that the "helm.sh/resource-policy": keep annotation is a
 > ```
 
 Number of replicas of google-cas-issuer to run.
+#### **image.registry** ~ `string`
+
+Deprecated: per-component registry prefix.  
+  
+If set, this value is *prepended* to the image repository that the chart would otherwise render. This applies both when `image.repository` is set and when the repository is computed from  
+`imageRegistry` + `imageNamespace` + `image.name`.  
+  
+This can produce "double registry" style references such as  
+`legacy.example.io/quay.io/jetstack/...`. Prefer using the global  
+`imageRegistry`/`imageNamespace` values.
+
+#### **image.name** ~ `string`
+> Default value:
+> ```yaml
+> cert-manager-google-cas-issuer
+> ```
+
+The image name for google-cas-issuer.  
+This is used (together with `imageRegistry` and `imageNamespace`) to construct the full image reference.
+
 #### **image.repository** ~ `string`
 > Default value:
 > ```yaml
-> quay.io/jetstack/cert-manager-google-cas-issuer
+> ""
 > ```
 
-Target image repository.
-#### **image.registry** ~ `unknown`
-> Default value:
-> ```yaml
-> null
-> ```
+Full repository override (takes precedence over `imageRegistry`, `imageNamespace`, and  
+`image.name`).  
+Example: quay.io/jetstack/cert-manager-google-cas-issuer
 
-Target image registry. Will be prepended to the target image repositry if set.
-#### **image.tag** ~ `unknown`
-> Default value:
-> ```yaml
-> null
-> ```
+#### **image.tag** ~ `string`
 
-Target image version tag. Defaults to the chart's appVersion.
-#### **image.digest** ~ `unknown`
-> Default value:
-> ```yaml
-> null
-> ```
+Override the image tag to deploy by setting this variable. If no value is set, the chart's appVersion is used.
 
-Target image digest. Will override any tag if set. for example:
+#### **image.digest** ~ `string`
+
+Target image digest. Override any tag, if set.  
+For example:
 
 ```yaml
 digest: sha256:0e072dddd1f7f8fc8909a2ca6f65e76c5f0d2fcfb8be47935ae3457e8bbceb20
 ```
+
 #### **image.pullPolicy** ~ `string`
 > Default value:
 > ```yaml
@@ -84,7 +110,8 @@ Optional secrets used for pulling the google-cas-issuer container image.
 > {}
 > ```
 
-Labels to apply to all resources
+Labels to apply to all resources.  
+On a key collision these win over the chart's own labels, with one exception: the "app" label on the google-cas-issuer Pods must match the Deployment's spec.selector.matchLabels, so it cannot be overridden there. It is still applied to every other resource.
 #### **serviceAccount.annotations** ~ `object`
 > Default value:
 > ```yaml
@@ -155,7 +182,7 @@ Optional additional annotations to add to the google-cas-issuer Pods
 > {}
 > ```
 
-Optional additional labels to add to the google-cas-issuer Pods
+Optional additional labels to add to the google-cas-issuer Pods. On a key collision these win over commonLabels. The "app" label cannot be overridden, because it must match the Deployment's spec.selector.matchLabels.
 #### **resources** ~ `object`
 > Default value:
 > ```yaml
@@ -213,6 +240,26 @@ nodeAffinity:
 Kubernetes pod tolerations for google-cas-issuer  
 For example:  
  - operator: "Exists"
+#### **topologySpreadConstraints** ~ `array`
+> Default value:
+> ```yaml
+> []
+> ```
+
+List of Kubernetes TopologySpreadConstraints.  
+  
+For example:
+
+```yaml
+topologySpreadConstraints:
+- maxSkew: 2
+  topologyKey: topology.kubernetes.io/zone
+  whenUnsatisfiable: ScheduleAnyway
+  labelSelector:
+    matchLabels:
+      app.kubernetes.io/instance: cert-manager
+      app.kubernetes.io/component: controller
+```
 #### **priorityClassName** ~ `string`
 > Default value:
 > ```yaml
@@ -220,5 +267,9 @@ For example:
 > ```
 
 Optional priority class to be used for the google-cas-issuer pods.
+#### **nameOverride** ~ `string`
+
+Override the "cert-manager-google-cas-issuer.name" value.
+
 
 <!-- /AUTO-GENERATED -->

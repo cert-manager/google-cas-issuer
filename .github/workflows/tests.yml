@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -22,11 +22,11 @@ jobs:
         run: |
           make print-go-version >> "$GITHUB_OUTPUT"
 
-      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ steps.go-version.outputs.result }}
 
-      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: _bin/downloaded
           key: downloaded-${{ runner.os }}-${{ hashFiles('klone.yaml') }}-verify
@@ -38,7 +38,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
         fetch-tags: true
@@ -47,7 +47,7 @@ jobs:
       run: |
         make print-go-version >> "$GITHUB_OUTPUT"
 
-    - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version: ${{ steps.go-version.outputs.result }}
 
@@ -57,12 +57,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # The Google Cloud auth step needs an OIDC token, and GitHub does not
+    # issue one to workflows triggered by a pull request from a fork. Skip the
+    # job there so the required check reports "skipped" (which counts as
+    # success) instead of failing before any test runs. To run e2e for a fork
+    # PR, push its branch to this repository and open a PR from that branch.
+    if: ${{ !github.event.pull_request.head.repo.fork }}
+
     permissions:
       contents: read
       id-token: write
 
     steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
         fetch-tags: true
@@ -71,7 +78,7 @@ jobs:
       run: |
         make print-go-version >> "$GITHUB_OUTPUT"
 
-    - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version: ${{ steps.go-version.outputs.result }}
 
