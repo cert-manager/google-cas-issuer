@@ -137,7 +137,7 @@ func (o *GoogleCAS) Sign(ctx context.Context, cr signer.CertificateRequestObject
 				Nanos:   0,
 			},
 			CertificateTemplate: issuerSpec.CertificateTemplate,
-			Labels:              o.buildCertificateLabels(cr),
+			Labels:              o.buildCertificateLabels(cr, issuerSpec.CertificateMetadataPropagationMode),
 		},
 		RequestId:                     uuid.New().String(),
 		IssuingCertificateAuthorityId: issuerSpec.CertificateAuthorityId,
@@ -303,16 +303,25 @@ func filterAndDeduplicateCAs(caChains []*casapi.FetchCaCertsResponse_CertChain) 
 
 const maxCertificateLabels = 60
 
-// buildCertificateLabels constructs a map of labels to be applied to a Google CAS Certificate.
-// It extracts native Kubernetes labels from the CertificateRequest (which natively inherits
-// them from the parent Certificate), and applies GCP-compliant sanitization before returning
-// the final map. To ensure idempotency and auditability, it injects provenance metadata first
+// buildCertificateLabels constructs a map of labels to be applied to a Google CAS Certificate,
+// according to the CertificateMetadataPropagationMode of the issuer. It returns nil unless the
+// issuer has opted in, so by default no labels are set.
+// In "Provenance" mode it sets the provenance metadata: the name of the parent Certificate, and
+// the name and namespace of the CertificateRequest.
+// In "Labels" mode it additionally extracts native Kubernetes labels from the CertificateRequest
+// (which natively inherits them from the parent Certificate), and applies GCP-compliant
+// sanitization. To ensure idempotency and auditability, it injects provenance metadata first
 // and then processes the remaining labels in a deterministic, alphabetically sorted order until
 // the maxCertificateLabels limit is reached.
-func (o *GoogleCAS) buildCertificateLabels(cr signer.CertificateRequestObject) map[string]string {
+func (o *GoogleCAS) buildCertificateLabels(cr signer.CertificateRequestObject, mode issuersv1beta1.CertificateMetadataPropagationMode) map[string]string {
+	// Propagation is opt-in: no Kubernetes metadata leaves the cluster unless the issuer asks for it.
+	if mode != issuersv1beta1.CertificateMetadataPropagationModeProvenance &&
+		mode != issuersv1beta1.CertificateMetadataPropagationModeLabels {
+		return nil
+	}
+
 	labels := make(map[string]string)
 	annotations := cr.GetAnnotations()
-	nativeLabels := cr.GetLabels()
 
 	addLabel := func(key, value string) {
 		if key == "" || len(labels) >= maxCertificateLabels {
@@ -329,16 +338,22 @@ func (o *GoogleCAS) buildCertificateLabels(cr signer.CertificateRequestObject) m
 		addLabel(sanitizeGCPLabel("cert-manager-io_certificate-name", true), sanitizeGCPLabel(parentCertName, false))
 	}
 	addLabel(sanitizeGCPLabel("cert-manager-io_certificate-request-name", true), sanitizeGCPLabel(cr.GetName(), false))
-	addLabel(sanitizeGCPLabel("cert-manager-io_certificate-request-namespace", true), sanitizeGCPLabel(cr.GetNamespace(), false))
-
-	keys := make([]string, 0, len(nativeLabels))
-	for k := range nativeLabels {
-		keys = append(keys, k)
+	// Kubernetes CertificateSigningRequests are cluster-scoped and have no namespace.
+	if namespace := cr.GetNamespace(); namespace != "" {
+		addLabel(sanitizeGCPLabel("cert-manager-io_certificate-request-namespace", true), sanitizeGCPLabel(namespace, false))
 	}
-	sort.Strings(keys)
 
-	for _, k := range keys {
-		addLabel(sanitizeGCPLabel(k, true), sanitizeGCPLabel(nativeLabels[k], false))
+	if mode == issuersv1beta1.CertificateMetadataPropagationModeLabels {
+		nativeLabels := cr.GetLabels()
+		keys := make([]string, 0, len(nativeLabels))
+		for k := range nativeLabels {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, k := range keys {
+			addLabel(sanitizeGCPLabel(k, true), sanitizeGCPLabel(nativeLabels[k], false))
+		}
 	}
 
 	return labels
