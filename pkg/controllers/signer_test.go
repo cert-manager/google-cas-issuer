@@ -30,8 +30,11 @@ import (
 	"time"
 
 	casapi "cloud.google.com/go/security/privateca/apiv1/privatecapb"
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/cert-manager/issuer-lib/controllers/signer"
 	"github.com/stretchr/testify/assert"
+	certificatesv1 "k8s.io/api/certificates/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cert-manager/google-cas-issuer/api/v1beta1"
 )
@@ -297,20 +300,6 @@ func generateTestCert(t *testing.T, isCA bool, subject, issuer string, expiry ti
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 }
 
-// Mock structure for CertificateRequestObject interface
-type mockCR struct {
-	signer.CertificateRequestObject
-	name        string
-	namespace   string
-	annotations map[string]string
-	labels      map[string]string
-}
-
-func (m *mockCR) GetName() string                   { return m.name }
-func (m *mockCR) GetNamespace() string              { return m.namespace }
-func (m *mockCR) GetAnnotations() map[string]string { return m.annotations }
-func (m *mockCR) GetLabels() map[string]string      { return m.labels }
-
 func TestSanitizeGCPLabel(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -339,49 +328,153 @@ func TestSanitizeGCPLabel(t *testing.T) {
 func TestBuildCertificateLabels(t *testing.T) {
 	googleCAS := &GoogleCAS{}
 
-	// Test case: Base generation with origin tags and K8s labels
-	cr1 := &mockCR{
-		name:      "test-request",
-		namespace: "default",
-		annotations: map[string]string{
-			"cert-manager.io/certificate-name": "parent-cert",
-			"some-other-annotation":            "ignored",
+	// A CertificateRequest as cert-manager creates it for a Certificate: the labels of
+	// the Certificate are copied and the name of the Certificate is set as an annotation.
+	labelledRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"cert-manager.io/certificate-name": "parent-cert",
+				"some-other-annotation":            "ignored",
+			},
+			Labels: map[string]string{
+				"team":         "platform",
+				"Cost-Center!": "999",     // uppercase and exclamation
+				"1st-region":   "us-east", // key starts with number
+			},
 		},
-		labels: map[string]string{
-			"team":         "platform",
-			"Cost-Center!": "999",     // uppercase and exclamation
-			"1st-region":   "us-east", // key starts with number
+	})
+
+	// A Kubernetes CertificateSigningRequest is cluster-scoped, so it has no namespace.
+	clusterScopedRequest := signer.CertificateRequestObjectFromCertificateSigningRequest(&certificatesv1.CertificateSigningRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-csr",
+		},
+	})
+
+	// A CertificateRequest that was not created for a Certificate and carries no metadata of its own.
+	bareRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "bare-request",
+			Namespace: "default",
+		},
+	})
+
+	// A CertificateRequest with a label that tries to pass for a provenance label.
+	spoofingRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"cert-manager-io_certificate-request-namespace": "another-namespace",
+			},
+		},
+	})
+
+	tests := []struct {
+		name string
+		cr   signer.CertificateRequestObject
+		mode v1beta1.CertificateMetadataPropagationMode
+		want map[string]string
+	}{
+		{
+			name: "nothing is propagated when the mode is not set",
+			cr:   labelledRequest,
+			mode: "",
+			want: nil,
+		},
+		{
+			name: "nothing is propagated in None mode",
+			cr:   labelledRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeNone,
+			want: nil,
+		},
+		{
+			name: "nothing is propagated for an unknown mode",
+			cr:   labelledRequest,
+			mode: "Everything",
+			want: nil,
+		},
+		{
+			name: "Provenance mode propagates only the provenance labels",
+			cr:   labelledRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeProvenance,
+			want: map[string]string{
+				"cert-manager-io_certificate-name":              "parent-cert",
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+			},
+		},
+		{
+			name: "a request without a namespace gets no namespace label",
+			cr:   clusterScopedRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeProvenance,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name": "test-csr",
+			},
+		},
+		{
+			name: "Labels mode propagates provenance and sanitized Kubernetes labels",
+			cr:   labelledRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-name":              "parent-cert",
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+				"team":         "platform",
+				"cost-center_": "999",
+				"l-1st-region": "us-east", // Key must be prepended with l-
+			},
+		},
+		{
+			name: "Labels mode without labels or annotations propagates the request provenance",
+			cr:   bareRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "bare-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+			},
+		},
+		{
+			name: "a Kubernetes label cannot override a provenance label",
+			cr:   spoofingRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+			},
 		},
 	}
 
-	labels1 := googleCAS.buildCertificateLabels(cr1)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := googleCAS.buildCertificateLabels(tt.cr, tt.mode)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
 
-	// Expect native k8s origin labels to be synced automatically
-	assert.Equal(t, "parent-cert", labels1["cert-manager-io_certificate-name"])
-	assert.Equal(t, "test-request", labels1["cert-manager-io_certificate-request-name"])
-	assert.Equal(t, "default", labels1["cert-manager-io_certificate-request-namespace"])
+func TestBuildCertificateLabelsLimit(t *testing.T) {
+	googleCAS := &GoogleCAS{}
 
-	// Expect proper sanitization of K8s native metadata.labels
-	assert.Equal(t, "platform", labels1["team"])
-	assert.Equal(t, "999", labels1["cost-center_"])
-	assert.Equal(t, "us-east", labels1["l-1st-region"]) // Key must be prepended with l-
-
-	// Test case: Max Label Truncation natively
 	bigLabels := make(map[string]string)
 	for i := range 70 {
 		bigLabels[fmt.Sprintf("key-%d", i)] = "val"
 	}
 
-	cr2 := &mockCR{
-		name:      "massive-label-request",
-		namespace: "default",
-		labels:    bigLabels,
-	}
+	cr := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "massive-label-request",
+			Namespace: "default",
+			Labels:    bigLabels,
+		},
+	})
 
-	labels2 := googleCAS.buildCertificateLabels(cr2)
-	assert.LessOrEqual(t, len(labels2), 60) // Should truncate above 60 keys natively downstream
+	got := googleCAS.buildCertificateLabels(cr, v1beta1.CertificateMetadataPropagationModeLabels)
+	assert.Len(t, got, 60)
 
-	// Explicitly assert that the provenance metadata unconditionally survived the 60-label truncation!
-	assert.Equal(t, "massive-label-request", labels2["cert-manager-io_certificate-request-name"])
-	assert.Equal(t, "default", labels2["cert-manager-io_certificate-request-namespace"])
+	// Provenance labels are added first, so they are never the ones that are dropped.
+	assert.Equal(t, "massive-label-request", got["cert-manager-io_certificate-request-name"])
+	assert.Equal(t, "default", got["cert-manager-io_certificate-request-namespace"])
 }
