@@ -32,6 +32,11 @@ type Config struct {
 	Project  string
 	Location string
 	CaPoolId string
+
+	// Fallback CA pool config for failover tests (optional)
+	FallbackProject  string
+	FallbackCaPoolId string
+	FallbackLocation string
 }
 
 var (
@@ -51,6 +56,9 @@ func (c *Config) AddFlags(fs *flag.FlagSet) {
 	fs.StringVar(&c.Project, "project", "", "GCP project name")
 	fs.StringVar(&c.Location, "location", "", "GCP project location")
 	fs.StringVar(&c.CaPoolId, "capoolid", "", "CA pool ID")
+	fs.StringVar(&c.FallbackProject, "fallback-project", "", "Fallback CA pool project for failover tests (optional)")
+	fs.StringVar(&c.FallbackCaPoolId, "fallback-capoolid", "", "Fallback CA pool ID for failover tests (optional)")
+	fs.StringVar(&c.FallbackLocation, "fallback-location", "", "Fallback CA pool location for failover tests (optional)")
 }
 
 func (c *Config) Validate() error {

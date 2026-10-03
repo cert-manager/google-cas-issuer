@@ -271,6 +271,52 @@ spec:
 kubectl apply -f googlecasclusterissuer-sample.yaml
 ```
 
+### Failover / Fallback CA Pools (High Availability)
+
+You can configure one or more fallback CA pools for automatic failover. If the primary CA pool fails to issue a certificate (e.g., due to a regional outage or quota exhaustion), the controller will automatically try each fallback pool in order until one succeeds.
+
+All fallback configuration is **optional** — if omitted, the issuer behaves exactly as before.
+
+```yaml
+apiVersion: cas-issuer.jetstack.io/v1beta1
+kind: GoogleCASIssuer
+metadata:
+  name: ha-issuer
+spec:
+  project: $PROJECT_ID
+  location: us-east1
+  caPoolId: primary-pool
+  certificateTemplate: projects/$PROJECT_ID/locations/us-east1/certificateTemplates/my-template
+  credentials:
+    name: "googlesa"
+    key: "$PROJECT_ID-key.json"
+  # Fallback configuration (optional, supports multiple entries)
+  fallbacks:
+    - project: $PROJECT_ID # same project, different region
+      caPoolId: dr-pool
+      location: us-west1
+      # certificateAuthorityId: ""  # omit to load balance across all CAs
+    - project: backup-project # different GCP project
+      caPoolId: eu-backup-pool
+      location: europe-west1
+      certificateTemplate: projects/backup-project/locations/europe-west1/certificateTemplates/eu-template
+```
+
+**Each fallback entry requires:**
+| Field | Description |
+|-------|-------------|
+| `project` | GCP project ID for this fallback pool |
+| `caPoolId` | CA pool ID for the fallback pool |
+| `location` | GCP location of the fallback pool |
+
+**Optional per fallback:**
+| Field | Description |
+|-------|-------------|
+| `certificateTemplate` | Certificate template for the fallback pool |
+| `certificateAuthorityId` | Specific CA within the fallback pool. Omit to load balance across all CAs. |
+
+> **IAM:** The service account must have `roles/privateca.certificateRequester` on **all** configured CA pools (primary and all fallbacks).
+
 ### Creating your first certificate
 
 You can now create certificates as normal, but ensure the `IssuerRef` is set to the `GoogleCASIssuer` or `GoogleCASClusterIssuer` created in the previous step.
