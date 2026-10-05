@@ -372,6 +372,42 @@ func TestBuildCertificateLabels(t *testing.T) {
 		},
 	})
 
+	// A CertificateRequest that was not created for a Certificate, with a label that tries to
+	// pass for the provenance label of a Certificate.
+	spoofedCertificateNameRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "bare-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"cert-manager-io_certificate-name": "spoofed-cert",
+			},
+		},
+	})
+
+	// A Kubernetes CertificateSigningRequest, which has no namespace, with a label that tries to
+	// pass for the namespace provenance label.
+	spoofedNamespaceRequest := signer.CertificateRequestObjectFromCertificateSigningRequest(&certificatesv1.CertificateSigningRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-csr",
+			Labels: map[string]string{
+				"cert-manager-io_certificate-request-namespace": "kube-system",
+			},
+		},
+	})
+
+	// A CertificateRequest with labels whose keys start with a reserved prefix once sanitized.
+	reservedPrefixRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"Cert-Manager-IO_owner":            "spoofed", // sanitized to cert-manager-io_owner
+				"cert-manager.io/certificate-name": "spoofed", // sanitized to cert-manager_io_certificate-name
+				"team":                             "platform",
+			},
+		},
+	})
+
 	tests := []struct {
 		name string
 		cr   signer.CertificateRequestObject
@@ -443,6 +479,33 @@ func TestBuildCertificateLabels(t *testing.T) {
 			want: map[string]string{
 				"cert-manager-io_certificate-request-name":      "test-request",
 				"cert-manager-io_certificate-request-namespace": "default",
+			},
+		},
+		{
+			name: "a request that was not created for a Certificate cannot pass for one",
+			cr:   spoofedCertificateNameRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "bare-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+			},
+		},
+		{
+			name: "a request without a namespace cannot pass for one",
+			cr:   spoofedNamespaceRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name": "test-csr",
+			},
+		},
+		{
+			name: "Kubernetes labels with a reserved key prefix are not propagated",
+			cr:   reservedPrefixRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+				"team": "platform",
 			},
 		},
 	}

@@ -354,7 +354,8 @@ In the `Labels` mode, all labels defined in the `metadata.labels` section of a `
 
 - **Sanitization**: Kubernetes labels are automatically sanitized to meet GCP's strict requirements (lowercase, alphanumeric, dashes, or underscores; max 63 characters).
 - **Key Mapping**: If a label key starts with a non-alphabetic character (like a number), it is automatically prefixed with `l-` to comply with GCP API constraints.
-- **Conflicts**: A Kubernetes label never replaces a provenance label. If two label keys are identical after sanitization, the first one in alphabetical order is kept.
+- **Reserved keys**: Kubernetes labels whose keys start with `cert-manager-io_` or `cert-manager_io_` after sanitization are not propagated, so that they cannot pass for provenance labels. This includes labels with the `cert-manager.io/` prefix.
+- **Conflicts**: If two label keys are identical after sanitization, the first one in alphabetical order is kept.
 - **Limit**: At most 60 labels are set on a certificate. The provenance labels are set first, then the Kubernetes labels in alphabetical order of their keys until the limit is reached.
 
 #### Example

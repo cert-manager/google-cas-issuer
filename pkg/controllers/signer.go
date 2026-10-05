@@ -352,11 +352,30 @@ func (o *GoogleCAS) buildCertificateLabels(cr signer.CertificateRequestObject, m
 		sort.Strings(keys)
 
 		for _, k := range keys {
-			addLabel(sanitizeGCPLabel(k, true), sanitizeGCPLabel(nativeLabels[k], false))
+			key := sanitizeGCPLabel(k, true)
+			if hasReservedLabelKeyPrefix(key) {
+				continue
+			}
+			addLabel(key, sanitizeGCPLabel(nativeLabels[k], false))
 		}
 	}
 
 	return labels
+}
+
+// reservedLabelKeyPrefixes are the label key prefixes reserved for the provenance labels.
+var reservedLabelKeyPrefixes = []string{"cert-manager-io_", "cert-manager_io_"}
+
+// hasReservedLabelKeyPrefix reports whether a sanitized label key starts with a prefix that is
+// reserved for the provenance labels. Kubernetes labels with such keys are not propagated, so
+// that they cannot pass for provenance labels, including the ones that are not set on a request.
+func hasReservedLabelKeyPrefix(key string) bool {
+	for _, prefix := range reservedLabelKeyPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // sanitizeGCPLabel ensures that a string conforms to the strict requirements for GCP labels.
