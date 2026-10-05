@@ -326,7 +326,7 @@ Metadata propagation is **opt-in** and disabled by default: unless you enable it
 | :--- | :--- |
 | `None` (default) | No labels. |
 | `Provenance` | The provenance labels described below. |
-| `Labels` | The provenance labels, and the labels of the `Certificate`. |
+| `Labels` | The provenance labels, and the labels of the `Certificate` (or `CertificateRequest` / `CertificateSigningRequest`). |
 
 ```yaml
 apiVersion: cas-issuer.jetstack.io/v1beta1
@@ -352,11 +352,11 @@ In the `Provenance` and `Labels` modes, the issuer injects the following provena
 
 In the `Labels` mode, all labels defined in the `metadata.labels` section of a `Certificate` (or `CertificateRequest`) are also propagated to the Google CAS certificate. This includes the labels added by deployment tools such as Helm or Argo CD.
 
-- **Sanitization**: Kubernetes labels are automatically sanitized to meet GCP's strict requirements (lowercase, alphanumeric, dashes, or underscores; max 63 characters).
+- **Sanitization**: Kubernetes labels are automatically sanitized to meet GCP's strict requirements (lowercase, alphanumeric, dashes, or underscores; max 63 characters; empty values are kept).
 - **Key Mapping**: If a label key starts with a non-alphabetic character (like a number), it is automatically prefixed with `l-` to comply with GCP API constraints.
 - **Reserved keys**: Kubernetes labels whose keys start with `cert-manager-io_` or `cert-manager_io_` after sanitization are not propagated, so that they cannot pass for provenance labels. This includes labels with the `cert-manager.io/` prefix.
 - **Conflicts**: If two label keys are identical after sanitization, the first one in alphabetical order is kept.
-- **Limit**: At most 60 labels are set on a certificate. The provenance labels are set first, then the Kubernetes labels in alphabetical order of their keys until the limit is reached.
+- **Limit**: At most 64 labels are set on a certificate, the maximum that Google Cloud allows. The provenance labels are set first, then the Kubernetes labels in alphabetical order of their keys until the limit is reached.
 
 #### Example
 
@@ -396,6 +396,7 @@ is issued in Google CAS with these labels:
 
 - Labels are set once, when the certificate is issued. Changing the labels of a `Certificate` does not update the certificates that were already issued in Google CAS; the new labels are used from the next issuance, for example at renewal.
 - Sanitization can alter values. For example, a `Certificate` named `my.app.example.com` is labelled `my_app_example_com`, and values longer than 63 characters are truncated.
+- Keys are truncated to 63 characters too. Kubernetes label keys can be longer, with a prefix of up to 253 characters (`<prefix>/<name>`), so two keys that share a long prefix can become identical. Only the first one in alphabetical order is kept.
 
 ## Continuous Integration
 

@@ -314,7 +314,9 @@ func TestSanitizeGCPLabel(t *testing.T) {
 		{"Key Starts with Alphabet", "a123-tenant", true, "a123-tenant"},
 		{"Value Starts with Number", "123-tenant", false, "123-tenant"},
 		{"Exceeds 63 characters", "this-is-a-very-long-label-that-is-way-longer-than-sixty-three-characters", true, "this-is-a-very-long-label-that-is-way-longer-than-sixty-three-c"},
-		{"Empty string", "", true, ""},
+		{"Key Starts with Number and Exceeds 63 characters once Prefixed", "1" + strings.Repeat("a", 62), true, "l-1" + strings.Repeat("a", 60)},
+		{"Empty key", "", true, ""},
+		{"Empty value", "", false, ""},
 	}
 
 	for _, tt := range tests {
@@ -326,8 +328,6 @@ func TestSanitizeGCPLabel(t *testing.T) {
 }
 
 func TestBuildCertificateLabels(t *testing.T) {
-	googleCAS := &GoogleCAS{}
-
 	// A CertificateRequest as cert-manager creates it for a Certificate: the labels of
 	// the Certificate are copied and the name of the Certificate is set as an annotation.
 	labelledRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
@@ -391,6 +391,42 @@ func TestBuildCertificateLabels(t *testing.T) {
 			Name: "test-csr",
 			Labels: map[string]string{
 				"cert-manager-io_certificate-request-namespace": "kube-system",
+			},
+		},
+	})
+
+	// A CertificateRequest with two label keys that are identical once sanitized.
+	collidingKeysRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"Cost-Center": "uppercase-key",
+				"cost-center": "lowercase-key",
+			},
+		},
+	})
+
+	// A CertificateRequest with two label keys that share a prefix longer than a GCP label key,
+	// so that both are cut to the same 63 characters.
+	longPrefixRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"cost-attribution.platform-engineering.infrastructure.example.com/owner": "owner",
+				"cost-attribution.platform-engineering.infrastructure.example.com/team":  "team",
+			},
+		},
+	})
+
+	// A CertificateRequest with a label that has an empty value.
+	emptyValueRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"environment.example.com/prod": "",
 			},
 		},
 	})
@@ -482,6 +518,36 @@ func TestBuildCertificateLabels(t *testing.T) {
 			},
 		},
 		{
+			name: "of two keys that are identical once sanitized, the first in alphabetical order is kept",
+			cr:   collidingKeysRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+				"cost-center": "uppercase-key",
+			},
+		},
+		{
+			name: "keys with a long shared prefix are cut to the same 63 characters and the first is kept",
+			cr:   longPrefixRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":                        "test-request",
+				"cert-manager-io_certificate-request-namespace":                   "default",
+				"cost-attribution_platform-engineering_infrastructure_example_co": "owner",
+			},
+		},
+		{
+			name: "empty label values are kept",
+			cr:   emptyValueRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+				"environment_example_com_prod":                  "",
+			},
+		},
+		{
 			name: "a request that was not created for a Certificate cannot pass for one",
 			cr:   spoofedCertificateNameRequest,
 			mode: v1beta1.CertificateMetadataPropagationModeLabels,
@@ -512,15 +578,13 @@ func TestBuildCertificateLabels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := googleCAS.buildCertificateLabels(tt.cr, tt.mode)
+			got := buildCertificateLabels(tt.cr, tt.mode)
 			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestBuildCertificateLabelsLimit(t *testing.T) {
-	googleCAS := &GoogleCAS{}
-
 	bigLabels := make(map[string]string)
 	for i := range 70 {
 		bigLabels[fmt.Sprintf("key-%d", i)] = "val"
@@ -534,8 +598,8 @@ func TestBuildCertificateLabelsLimit(t *testing.T) {
 		},
 	})
 
-	got := googleCAS.buildCertificateLabels(cr, v1beta1.CertificateMetadataPropagationModeLabels)
-	assert.Len(t, got, 60)
+	got := buildCertificateLabels(cr, v1beta1.CertificateMetadataPropagationModeLabels)
+	assert.Len(t, got, 64) // the maximum number of labels on a Google Cloud resource
 
 	// Provenance labels are added first, so they are never the ones that are dropped.
 	assert.Equal(t, "massive-label-request", got["cert-manager-io_certificate-request-name"])
