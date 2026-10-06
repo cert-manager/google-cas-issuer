@@ -34,8 +34,11 @@ import (
 	controllerslib "github.com/cert-manager/issuer-lib/controllers"
 	"github.com/cert-manager/issuer-lib/controllers/signer"
 	"github.com/google/uuid"
+	gax "github.com/googleapis/gax-go/v2"
 	"github.com/spf13/viper"
 	"google.golang.org/api/option"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,6 +50,12 @@ import (
 )
 
 var PickedupRequestConditionType = cmapi.CertificateRequestConditionType("pickedup")
+
+// certificateCreator defines the interface for creating certificates with Google CAS,
+// satisfied by *privateca.CertificateAuthorityClient.
+type certificateCreator interface {
+	CreateCertificate(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error)
+}
 
 type GoogleCAS struct {
 	client client.Client
@@ -141,9 +150,9 @@ func (o *GoogleCAS) Sign(ctx context.Context, cr signer.CertificateRequestObject
 		IssuingCertificateAuthorityId: issuerSpec.CertificateAuthorityId,
 	}
 
-	createCertResp, err := casClient.CreateCertificate(ctx, createCertificateRequest)
+	createCertResp, parent, err := createCertificateWithFallback(ctx, casClient, createCertificateRequest, parent, issuerSpec)
 	if err != nil {
-		return signer.PEMBundle{}, fmt.Errorf("casClient.CreateCertificate failed: %w", err)
+		return signer.PEMBundle{}, err
 	}
 
 	chainPEM, caPem, err := extractCertAndCA(createCertResp)
@@ -176,26 +185,142 @@ func (o *GoogleCAS) Sign(ctx context.Context, cr signer.CertificateRequestObject
 	}, err
 }
 
-func buildParentString(issuerSpec *issuersv1beta1.GoogleCASIssuerSpec) (string, error) {
-	if issuerSpec.Project == "" {
+// createCertificateWithFallback attempts to create a certificate using the primary CA pool.
+// If the primary attempt fails and fallback CA pools are configured, it retries each
+// fallback in order. Returns the certificate response, the parent string of the pool that
+// successfully signed (for use in subsequent FetchCaCerts calls), and any error.
+func createCertificateWithFallback(
+	ctx context.Context,
+	casClient certificateCreator,
+	req *casapi.CreateCertificateRequest,
+	parent string,
+	issuerSpec *issuersv1beta1.GoogleCASIssuerSpec,
+) (*casapi.Certificate, string, error) {
+	resp, err := casClient.CreateCertificate(ctx, req)
+	if err == nil {
+		return resp, parent, nil
+	}
+
+	// If the primary call failed because ctx was canceled or deadline expired, do not attempt fallbacks
+	if ctx.Err() != nil {
+		return nil, "", err
+	}
+
+	// Fail fast if no fallbacks are configured before logging failover
+	if len(issuerSpec.Fallbacks) == 0 {
+		return nil, "", fmt.Errorf("casClient.CreateCertificate failed (no fallbacks configured): %w", err)
+	}
+
+	log := ctrl.LoggerFrom(ctx)
+	log.Info("Primary CA pool signing failed; triggering failover to fallback pools",
+		"primaryPool", parent,
+		"error", err,
+	)
+
+	// Try each fallback in order
+	var lastFbErr error
+	var lastFbParent string
+
+	for i, fb := range issuerSpec.Fallbacks {
+		fbProject := fb.Project
+		if fbProject == "" {
+			fbProject = issuerSpec.Project
+		}
+		fbParent := fmt.Sprintf("projects/%s/locations/%s/caPools/%s", fbProject, fb.Location, fb.CaPoolId)
+
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			lastFbErr = fmt.Errorf("context canceled before attempting fallback[%d]: %w", i, ctxErr)
+			lastFbParent = fbParent
+			break
+		}
+
+		// Clone request to avoid mutating caller's request in place across iterations
+		fbReq := proto.Clone(req).(*casapi.CreateCertificateRequest)
+		fbReq.CertificateId = fmt.Sprintf("cert-manager-%d", rand.Int())
+		fbReq.Parent = fbParent
+		if fbReq.Certificate != nil {
+			fbReq.Certificate.CertificateTemplate = fb.CertificateTemplate
+		}
+		fbReq.IssuingCertificateAuthorityId = fb.CertificateAuthorityId
+		fbReq.RequestId = uuid.New().String()
+
+		resp, fbCertErr := casClient.CreateCertificate(ctx, fbReq)
+		if fbCertErr != nil {
+			log.Info("Fallback CA pool signing failed",
+				"fallbackIndex", i,
+				"fallbackPool", fbParent,
+				"error", fbCertErr,
+			)
+			lastFbErr = fbCertErr
+			lastFbParent = fbParent
+			continue
+		}
+
+		log.Info("Successfully issued certificate using fallback CA pool",
+			"fallbackIndex", i,
+			"fallbackPool", fbParent,
+		)
+		return resp, fbParent, nil
+	}
+
+	numFallbacks := len(issuerSpec.Fallbacks)
+	if numFallbacks == 1 {
+		return nil, "", fmt.Errorf("casClient.CreateCertificate failed on Primary (%s: %s) and fallback pool (%s: %s)",
+			parent, cleanErrorMessage(err), lastFbParent, cleanErrorMessage(lastFbErr))
+	}
+
+	return nil, "", fmt.Errorf("casClient.CreateCertificate failed on Primary (%s: %s); all %d fallback CA pools also failed (last error on %s: %s)",
+		parent, cleanErrorMessage(err), numFallbacks, lastFbParent, cleanErrorMessage(lastFbErr))
+}
+
+// cleanErrorMessage extracts a clean, human-readable error description from gRPC and standard errors,
+// omitting verbose metadata (like google.rpc.ErrorInfo) so Kubernetes Event messages remain well within 1024 characters.
+func cleanErrorMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	type grpcStatus interface {
+		GRPCStatus() *status.Status
+	}
+	var gs grpcStatus
+	if errors.As(err, &gs) {
+		st := gs.GRPCStatus()
+		return fmt.Sprintf("%s: %s", st.Code(), st.Message())
+	}
+	return err.Error()
+}
+
+func buildParentString(project, location, caPoolId string) (string, error) {
+	if project == "" {
 		return "", signer.PermanentError{Err: fmt.Errorf("must specify a Project")}
 	}
-	if issuerSpec.Location == "" {
+	if location == "" {
 		return "", signer.PermanentError{Err: fmt.Errorf("must specify a Location")}
 	}
-	if issuerSpec.CaPoolId == "" {
+	if caPoolId == "" {
 		return "", signer.PermanentError{Err: fmt.Errorf("must specify a CaPoolId")}
 	}
 
-	parent := fmt.Sprintf("projects/%s/locations/%s/caPools/%s", issuerSpec.Project, issuerSpec.Location, issuerSpec.CaPoolId)
+	parent := fmt.Sprintf("projects/%s/locations/%s/caPools/%s", project, location, caPoolId)
 
 	return parent, nil
 }
 
 func (c *GoogleCAS) createCasClient(ctx context.Context, resourceNamespace string, issuerSpec *issuersv1beta1.GoogleCASIssuerSpec) (*privateca.CertificateAuthorityClient, string, error) {
-	parent, err := buildParentString(issuerSpec)
+	parent, err := buildParentString(issuerSpec.Project, issuerSpec.Location, issuerSpec.CaPoolId)
 	if err != nil {
 		return nil, "", err
+	}
+
+	// Validate all fallback CA pools upfront so invalid configuration surfaces early on the Issuer's Ready condition
+	for i, fb := range issuerSpec.Fallbacks {
+		fbProject := fb.Project
+		if fbProject == "" {
+			fbProject = issuerSpec.Project
+		}
+		if _, err := buildParentString(fbProject, fb.Location, fb.CaPoolId); err != nil {
+			return nil, "", fmt.Errorf("invalid fallback[%d] configuration: %w", i, err)
+		}
 	}
 
 	var casClient *privateca.CertificateAuthorityClient
