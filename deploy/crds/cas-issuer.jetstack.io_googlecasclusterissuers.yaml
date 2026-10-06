@@ -61,19 +61,20 @@ spec:
                 - PoolCAs
                 type: string
               caPoolId:
-                description: CaPoolId is the id of the CA pool to issue certificates
-                  from
+                description: CaPoolId is the ID of the CA pool to issue certificates
+                  from.
+                minLength: 1
                 type: string
               certificateAuthorityId:
                 description: |-
-                  CertificateAuthorityId is specific certificate authority to
+                  CertificateAuthorityId is a specific certificate authority to
                   use to sign. Omit in order to load balance across all CAs
-                  in the pool
+                  in the pool.
                 type: string
               certificateTemplate:
                 description: |-
-                  CertificateTemplate is specific certificate template to
-                  use. Omit to not specify a template
+                  CertificateTemplate is a specific certificate template to
+                  use. Omit to not specify a template.
                 type: string
               credentials:
                 description: Credentials is a reference to a Kubernetes Secret Key
@@ -93,12 +94,60 @@ spec:
                 required:
                 - name
                 type: object
+              fallbacks:
+                description: |-
+                  Fallbacks is an ordered list of fallback CA pools to try if the primary pool fails.
+                  The controller will attempt each fallback in order until one succeeds.
+                items:
+                  description: CAPool defines a Google Cloud Certificate Authority
+                    Service CA pool configuration.
+                  properties:
+                    caPoolId:
+                      description: CaPoolId is the ID of the CA pool to issue certificates
+                        from.
+                      minLength: 1
+                      type: string
+                    certificateAuthorityId:
+                      description: |-
+                        CertificateAuthorityId is a specific certificate authority to
+                        use to sign. Omit in order to load balance across all CAs
+                        in the pool.
+                      type: string
+                    certificateTemplate:
+                      description: |-
+                        CertificateTemplate is a specific certificate template to
+                        use. Omit to not specify a template.
+                      type: string
+                    location:
+                      description: Location is the Google Cloud Project Location of
+                        the CA pool.
+                      minLength: 1
+                      type: string
+                    project:
+                      description: |-
+                        Project is the Google Cloud Project ID for the CA pool.
+                        Required on the primary spec; if omitted on a fallback pool, defaults to spec.project.
+                      minLength: 1
+                      type: string
+                  required:
+                  - caPoolId
+                  - location
+                  type: object
+                type: array
               location:
-                description: Location is the Google Cloud Project Location
+                description: Location is the Google Cloud Project Location of the
+                  CA pool.
+                minLength: 1
                 type: string
               project:
-                description: Project is the Google Cloud Project ID
+                description: |-
+                  Project is the Google Cloud Project ID for the CA pool.
+                  Required on the primary spec; if omitted on a fallback pool, defaults to spec.project.
+                minLength: 1
                 type: string
+            required:
+            - caPoolId
+            - location
             type: object
           status:
             properties:
