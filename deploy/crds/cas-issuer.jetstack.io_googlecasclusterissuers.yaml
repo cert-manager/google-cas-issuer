@@ -93,6 +93,44 @@ spec:
                 required:
                 - name
                 type: object
+              fallbacks:
+                description: |-
+                  Fallbacks is an ordered list of fallback CA pools to try if the primary pool fails.
+                  The controller will attempt each fallback in order until one succeeds.
+                items:
+                  description: |-
+                    FallbackCAPool defines a fallback CA pool configuration for failover.
+                    If the primary CA pool fails, the controller will attempt each fallback in order.
+                  properties:
+                    caPoolId:
+                      description: CaPoolId is the CA pool ID for the fallback pool.
+                      minLength: 1
+                      type: string
+                    certificateAuthorityId:
+                      description: |-
+                        CertificateAuthorityId is a specific certificate authority within the fallback pool.
+                        Omit to load balance across all CAs in the pool.
+                      type: string
+                    certificateTemplate:
+                      description: CertificateTemplate is the certificate template
+                        to use with this fallback pool.
+                      type: string
+                    location:
+                      description: Location is the Google Cloud location of the fallback
+                        pool.
+                      minLength: 1
+                      type: string
+                    project:
+                      description: |-
+                        Project is the Google Cloud Project ID for this fallback pool.
+                        If omitted, defaults to the primary spec.project.
+                      minLength: 1
+                      type: string
+                  required:
+                  - caPoolId
+                  - location
+                  type: object
+                type: array
               location:
                 description: Location is the Google Cloud Project Location
                 type: string

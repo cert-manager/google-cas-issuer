@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -30,7 +31,12 @@ import (
 	"time"
 
 	casapi "cloud.google.com/go/security/privateca/apiv1/privatecapb"
+	gax "github.com/googleapis/gax-go/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cert-manager/google-cas-issuer/api/v1beta1"
 )
@@ -41,9 +47,9 @@ func TestBuildParentString(t *testing.T) {
 		Project:  "test-project",
 		Location: "test-location",
 	}
-	parent, err := buildParentString(spec)
+	parent, err := buildParentString(spec.Project, spec.Location, spec.CaPoolId)
 	if err != nil {
-		t.Errorf("NewSigner returned an error: %s", err.Error())
+		t.Errorf("buildParentString returned an error: %s", err.Error())
 	}
 	if got, want := parent, fmt.Sprintf("projects/%s/locations/%s/caPools/%s", spec.Project, spec.Location, spec.CaPoolId); got != want {
 		t.Errorf("Wrong parent: %s != %s", got, want)
@@ -56,13 +62,330 @@ func TestBuildParentStringMissingPoolId(t *testing.T) {
 		Location: "test-location",
 		CaPoolId: "",
 	}
-	_, err := buildParentString(spec)
+	_, err := buildParentString(spec.Project, spec.Location, spec.CaPoolId)
 	if err == nil {
-		t.Error("NewSigner didn't return an error")
+		t.Error("buildParentString didn't return an error")
 	}
 	if got, want := err.Error(), "must specify a CaPoolId"; got != want {
 		t.Errorf("Wrong error: %s != %s", got, want)
 	}
+}
+
+func TestBuildFallbackParentString(t *testing.T) {
+	tests := []struct {
+		name        string
+		fb          v1beta1.FallbackCAPool
+		wantParent  string
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "all fields specified",
+			fb: v1beta1.FallbackCAPool{
+				Project:  "fallback-project",
+				Location: "us-west1",
+				CaPoolId: "fb-pool",
+			},
+			wantParent: "projects/fallback-project/locations/us-west1/caPools/fb-pool",
+		},
+		{
+			name: "missing project",
+			fb: v1beta1.FallbackCAPool{
+				Location: "us-west1",
+				CaPoolId: "fb-pool",
+			},
+			wantErr:     true,
+			errContains: "must specify a Project",
+		},
+		{
+			name: "missing location",
+			fb: v1beta1.FallbackCAPool{
+				Project:  "project",
+				CaPoolId: "pool",
+			},
+			wantErr:     true,
+			errContains: "must specify a Location",
+		},
+		{
+			name: "missing CaPoolId",
+			fb: v1beta1.FallbackCAPool{
+				Project:  "project",
+				Location: "location",
+			},
+			wantErr:     true,
+			errContains: "must specify a CaPoolId",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildParentString(tt.fb.Project, tt.fb.Location, tt.fb.CaPoolId)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantParent, got)
+			}
+		})
+	}
+}
+
+type fakeCertificateCreator struct {
+	createCertificateFn func(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error)
+	calls               []*casapi.CreateCertificateRequest
+}
+
+func (f *fakeCertificateCreator) CreateCertificate(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error) {
+	f.calls = append(f.calls, proto.Clone(req).(*casapi.CreateCertificateRequest))
+	if f.createCertificateFn != nil {
+		return f.createCertificateFn(ctx, req, opts...)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func TestCreateCertificateWithFallback(t *testing.T) {
+	primaryParent := "projects/my-project/locations/us-central1/caPools/primary-pool"
+	fb1Parent := "projects/my-project/locations/us-east1/caPools/fallback-pool-1"
+	fb2Parent := "projects/backup-project/locations/europe-west1/caPools/fallback-pool-2"
+
+	baseSpec := &v1beta1.GoogleCASIssuerSpec{
+		Project:             "my-project",
+		Location:            "us-central1",
+		CaPoolId:            "primary-pool",
+		CertificateTemplate: "primary-template",
+		Fallbacks: []v1beta1.FallbackCAPool{
+			{
+				// Project omitted: should default to my-project
+				Location:               "us-east1",
+				CaPoolId:               "fallback-pool-1",
+				CertificateTemplate:    "fb1-template",
+				CertificateAuthorityId: "ca-1",
+			},
+			{
+				Project:                "backup-project",
+				Location:               "europe-west1",
+				CaPoolId:               "fallback-pool-2",
+				CertificateTemplate:    "fb2-template",
+				CertificateAuthorityId: "ca-2",
+			},
+		},
+	}
+
+	makeReq := func() *casapi.CreateCertificateRequest {
+		return &casapi.CreateCertificateRequest{
+			Parent:        primaryParent,
+			CertificateId: "orig-cert-id",
+			Certificate: &casapi.Certificate{
+				CertificateTemplate: "primary-template",
+			},
+			RequestId: "orig-req-id",
+		}
+	}
+
+	t.Run("Primary succeeds (no fallbacks attempted)", func(t *testing.T) {
+		expectedCert := &casapi.Certificate{Name: "primary-cert"}
+		fake := &fakeCertificateCreator{
+			createCertificateFn: func(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error) {
+				return expectedCert, nil
+			},
+		}
+
+		req := makeReq()
+		resp, parent, err := createCertificateWithFallback(context.Background(), fake, req, primaryParent, baseSpec)
+
+		require.NoError(t, err)
+		assert.Equal(t, expectedCert, resp)
+		assert.Equal(t, primaryParent, parent)
+		require.Len(t, fake.calls, 1)
+		assert.Equal(t, primaryParent, fake.calls[0].Parent)
+	})
+
+	t.Run("Primary fails, no fallbacks configured", func(t *testing.T) {
+		specNoFallbacks := &v1beta1.GoogleCASIssuerSpec{
+			Project:  "my-project",
+			Location: "us-central1",
+			CaPoolId: "primary-pool",
+		}
+		fake := &fakeCertificateCreator{
+			createCertificateFn: func(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error) {
+				return nil, errors.New("primary unavailable")
+			},
+		}
+
+		req := makeReq()
+		resp, parent, err := createCertificateWithFallback(context.Background(), fake, req, primaryParent, specNoFallbacks)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no fallbacks configured")
+		assert.Nil(t, resp)
+		assert.Empty(t, parent)
+		require.Len(t, fake.calls, 1)
+	})
+
+	t.Run("Primary fails, 1st fallback fails, 2nd fallback succeeds", func(t *testing.T) {
+		expectedCert := &casapi.Certificate{Name: "fallback-2-cert"}
+		fake := &fakeCertificateCreator{
+			createCertificateFn: func(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error) {
+				if req.Parent == primaryParent {
+					return nil, errors.New("primary 503 unavailable")
+				}
+				if req.Parent == fb1Parent {
+					return nil, errors.New("fb1 404 not found")
+				}
+				if req.Parent == fb2Parent {
+					return expectedCert, nil
+				}
+				return nil, errors.New("unexpected parent")
+			},
+		}
+
+		req := makeReq()
+		resp, parent, err := createCertificateWithFallback(context.Background(), fake, req, primaryParent, baseSpec)
+
+		require.NoError(t, err)
+		assert.Equal(t, expectedCert, resp)
+		assert.Equal(t, fb2Parent, parent)
+		require.Len(t, fake.calls, 3)
+
+		// Verify primary call
+		assert.Equal(t, primaryParent, fake.calls[0].Parent)
+		assert.Equal(t, "primary-template", fake.calls[0].Certificate.CertificateTemplate)
+
+		// Verify 1st fallback: project inherited from primary spec, fields updated
+		assert.Equal(t, fb1Parent, fake.calls[1].Parent)
+		assert.Equal(t, "fb1-template", fake.calls[1].Certificate.CertificateTemplate)
+		assert.Equal(t, "ca-1", fake.calls[1].IssuingCertificateAuthorityId)
+		assert.NotEqual(t, "orig-req-id", fake.calls[1].RequestId)
+		assert.NotEqual(t, "orig-cert-id", fake.calls[1].CertificateId)
+
+		// Verify 2nd fallback: uses backup-project
+		assert.Equal(t, fb2Parent, fake.calls[2].Parent)
+		assert.Equal(t, "fb2-template", fake.calls[2].Certificate.CertificateTemplate)
+		assert.Equal(t, "ca-2", fake.calls[2].IssuingCertificateAuthorityId)
+		assert.NotEqual(t, fake.calls[1].RequestId, fake.calls[2].RequestId)
+		assert.NotEqual(t, fake.calls[1].CertificateId, fake.calls[2].CertificateId)
+
+		// Verify original caller's request was not mutated in place
+		assert.Equal(t, primaryParent, req.Parent)
+		assert.Equal(t, "orig-cert-id", req.CertificateId)
+		assert.Equal(t, "orig-req-id", req.RequestId)
+		assert.Equal(t, "primary-template", req.Certificate.CertificateTemplate)
+	})
+
+	t.Run("Primary and all fallbacks fail (bounded error format)", func(t *testing.T) {
+		fake := &fakeCertificateCreator{
+			createCertificateFn: func(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error) {
+				return nil, fmt.Errorf("error on %s", req.Parent)
+			},
+		}
+
+		req := makeReq()
+		resp, parent, err := createCertificateWithFallback(context.Background(), fake, req, primaryParent, baseSpec)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Empty(t, parent)
+		assert.Contains(t, err.Error(), "casClient.CreateCertificate failed on Primary")
+		assert.Contains(t, err.Error(), primaryParent)
+		assert.Contains(t, err.Error(), "all 2 fallback CA pools also failed")
+		assert.Contains(t, err.Error(), fb2Parent)
+		assert.Less(t, len(err.Error()), 1024)
+		require.Len(t, fake.calls, 3)
+	})
+
+	t.Run("Primary and single fallback fail", func(t *testing.T) {
+		singleFallbackSpec := &v1beta1.GoogleCASIssuerSpec{
+			Project:  "my-project",
+			Location: "us-central1",
+			CaPoolId: "primary-pool",
+			Fallbacks: []v1beta1.FallbackCAPool{
+				{
+					Location: "us-west1",
+					CaPoolId: "fallback-pool-1",
+				},
+			},
+		}
+		fake := &fakeCertificateCreator{
+			createCertificateFn: func(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error) {
+				return nil, status.Error(codes.PermissionDenied, "permission denied")
+			},
+		}
+
+		req := makeReq()
+		resp, parent, err := createCertificateWithFallback(context.Background(), fake, req, primaryParent, singleFallbackSpec)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Empty(t, parent)
+		assert.Contains(t, err.Error(), "failed on Primary")
+		assert.Contains(t, err.Error(), "and fallback pool")
+		assert.Contains(t, err.Error(), "PermissionDenied: permission denied")
+		assert.Less(t, len(err.Error()), 1024)
+		require.Len(t, fake.calls, 2)
+	})
+
+	t.Run("Context canceled during fallback iteration", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		fake := &fakeCertificateCreator{
+			createCertificateFn: func(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error) {
+				if req.Parent == primaryParent {
+					return nil, errors.New("primary unavailable")
+				}
+				if req.Parent == fb1Parent {
+					// Cancel context after first fallback fails
+					cancel()
+					return nil, errors.New("fb1 unavailable")
+				}
+				return nil, errors.New("unexpected call")
+			},
+		}
+
+		req := makeReq()
+		resp, parent, err := createCertificateWithFallback(ctx, fake, req, primaryParent, baseSpec)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Empty(t, parent)
+		assert.Contains(t, err.Error(), "context canceled before attempting fallback[1]")
+		assert.Less(t, len(err.Error()), 1024)
+		require.Len(t, fake.calls, 2)
+	})
+
+	t.Run("Context canceled: does not attempt fallbacks", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // cancel immediately
+
+		fake := &fakeCertificateCreator{
+			createCertificateFn: func(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error) {
+				return nil, ctx.Err()
+			},
+		}
+
+		req := makeReq()
+		resp, parent, err := createCertificateWithFallback(ctx, fake, req, primaryParent, baseSpec)
+
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		assert.Empty(t, parent)
+		assert.Equal(t, context.Canceled, err)
+		require.Len(t, fake.calls, 1)
+	})
+}
+
+func TestCleanErrorMessage(t *testing.T) {
+	assert.Empty(t, cleanErrorMessage(nil))
+
+	stdErr := errors.New("simple standard error")
+	assert.Equal(t, "simple standard error", cleanErrorMessage(stdErr))
+
+	grpcErr := status.Error(codes.Unavailable, "service temporarily unavailable")
+	assert.Equal(t, "Unavailable: service temporarily unavailable", cleanErrorMessage(grpcErr))
+
+	wrappedGrpcErr := fmt.Errorf("wrapped: %w", grpcErr)
+	assert.Equal(t, "Unavailable: service temporarily unavailable", cleanErrorMessage(wrappedGrpcErr))
 }
 
 func TestExtractCertAndCA(t *testing.T) {
