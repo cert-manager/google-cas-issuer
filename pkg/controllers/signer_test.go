@@ -30,7 +30,11 @@ import (
 	"time"
 
 	casapi "cloud.google.com/go/security/privateca/apiv1/privatecapb"
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/cert-manager/issuer-lib/controllers/signer"
 	"github.com/stretchr/testify/assert"
+	certificatesv1 "k8s.io/api/certificates/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cert-manager/google-cas-issuer/api/v1beta1"
 )
@@ -294,4 +298,310 @@ func generateTestCert(t *testing.T, isCA bool, subject, issuer string, expiry ti
 	}
 
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+}
+
+func TestSanitizeGCPLabel(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		isKey    bool
+		expected string
+	}{
+		{"Valid Label", "team-engineering", true, "team-engineering"},
+		{"Uppercase to Lowercase", "Team-Engineering", true, "team-engineering"},
+		{"Invalid Characters Replaced", "tenant/123@region", false, "tenant_123_region"},
+		{"Key Starts with Number", "123-tenant", true, "l-123-tenant"},
+		{"Key Starts with Alphabet", "a123-tenant", true, "a123-tenant"},
+		{"Value Starts with Number", "123-tenant", false, "123-tenant"},
+		{"Exceeds 63 characters", "this-is-a-very-long-label-that-is-way-longer-than-sixty-three-characters", true, "this-is-a-very-long-label-that-is-way-longer-than-sixty-three-c"},
+		{"Key Starts with Number and Exceeds 63 characters once Prefixed", "1" + strings.Repeat("a", 62), true, "l-1" + strings.Repeat("a", 60)},
+		{"Empty key", "", true, ""},
+		{"Empty value", "", false, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeGCPLabel(tt.input, tt.isKey)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func TestBuildCertificateLabels(t *testing.T) {
+	// A CertificateRequest as cert-manager creates it for a Certificate: the labels of
+	// the Certificate are copied and the name of the Certificate is set as an annotation.
+	labelledRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"cert-manager.io/certificate-name": "parent-cert",
+				"some-other-annotation":            "ignored",
+			},
+			Labels: map[string]string{
+				"team":         "platform",
+				"Cost-Center!": "999",     // uppercase and exclamation
+				"1st-region":   "us-east", // key starts with number
+			},
+		},
+	})
+
+	// A Kubernetes CertificateSigningRequest is cluster-scoped, so it has no namespace.
+	clusterScopedRequest := signer.CertificateRequestObjectFromCertificateSigningRequest(&certificatesv1.CertificateSigningRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-csr",
+		},
+	})
+
+	// A CertificateRequest that was not created for a Certificate and carries no metadata of its own.
+	bareRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "bare-request",
+			Namespace: "default",
+		},
+	})
+
+	// A CertificateRequest with a label that tries to pass for a provenance label.
+	spoofingRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"cert-manager-io_certificate-request-namespace": "another-namespace",
+			},
+		},
+	})
+
+	// A CertificateRequest that was not created for a Certificate, with a label that tries to
+	// pass for the provenance label of a Certificate.
+	spoofedCertificateNameRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "bare-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"cert-manager-io_certificate-name": "spoofed-cert",
+			},
+		},
+	})
+
+	// A Kubernetes CertificateSigningRequest, which has no namespace, with a label that tries to
+	// pass for the namespace provenance label.
+	spoofedNamespaceRequest := signer.CertificateRequestObjectFromCertificateSigningRequest(&certificatesv1.CertificateSigningRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-csr",
+			Labels: map[string]string{
+				"cert-manager-io_certificate-request-namespace": "kube-system",
+			},
+		},
+	})
+
+	// A CertificateRequest with two label keys that are identical once sanitized.
+	collidingKeysRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"Cost-Center": "uppercase-key",
+				"cost-center": "lowercase-key",
+			},
+		},
+	})
+
+	// A CertificateRequest with two label keys that share a prefix longer than a GCP label key,
+	// so that both are cut to the same 63 characters.
+	longPrefixRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"cost-attribution.platform-engineering.infrastructure.example.com/owner": "owner",
+				"cost-attribution.platform-engineering.infrastructure.example.com/team":  "team",
+			},
+		},
+	})
+
+	// A CertificateRequest with a label that has an empty value.
+	emptyValueRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"environment.example.com/prod": "",
+			},
+		},
+	})
+
+	// A CertificateRequest with labels whose keys start with a reserved prefix once sanitized.
+	reservedPrefixRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"Cert-Manager-IO_owner":            "spoofed", // sanitized to cert-manager-io_owner
+				"cert-manager.io/certificate-name": "spoofed", // sanitized to cert-manager_io_certificate-name
+				"team":                             "platform",
+			},
+		},
+	})
+
+	tests := []struct {
+		name string
+		cr   signer.CertificateRequestObject
+		mode v1beta1.CertificateMetadataPropagationMode
+		want map[string]string
+	}{
+		{
+			name: "nothing is propagated when the mode is not set",
+			cr:   labelledRequest,
+			mode: "",
+			want: nil,
+		},
+		{
+			name: "nothing is propagated in None mode",
+			cr:   labelledRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeNone,
+			want: nil,
+		},
+		{
+			name: "nothing is propagated for an unknown mode",
+			cr:   labelledRequest,
+			mode: "Everything",
+			want: nil,
+		},
+		{
+			name: "Provenance mode propagates only the provenance labels",
+			cr:   labelledRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeProvenance,
+			want: map[string]string{
+				"cert-manager-io_certificate-name":              "parent-cert",
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+			},
+		},
+		{
+			name: "a request without a namespace gets no namespace label",
+			cr:   clusterScopedRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeProvenance,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name": "test-csr",
+			},
+		},
+		{
+			name: "Labels mode propagates provenance and sanitized Kubernetes labels",
+			cr:   labelledRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-name":              "parent-cert",
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+				"team":         "platform",
+				"cost-center_": "999",
+				"l-1st-region": "us-east", // Key must be prepended with l-
+			},
+		},
+		{
+			name: "Labels mode without labels or annotations propagates the request provenance",
+			cr:   bareRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "bare-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+			},
+		},
+		{
+			name: "a Kubernetes label cannot override a provenance label",
+			cr:   spoofingRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+			},
+		},
+		{
+			name: "of two keys that are identical once sanitized, the first in alphabetical order is kept",
+			cr:   collidingKeysRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+				"cost-center": "uppercase-key",
+			},
+		},
+		{
+			name: "keys with a long shared prefix are cut to the same 63 characters and the first is kept",
+			cr:   longPrefixRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":                        "test-request",
+				"cert-manager-io_certificate-request-namespace":                   "default",
+				"cost-attribution_platform-engineering_infrastructure_example_co": "owner",
+			},
+		},
+		{
+			name: "empty label values are kept",
+			cr:   emptyValueRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+				"environment_example_com_prod":                  "",
+			},
+		},
+		{
+			name: "a request that was not created for a Certificate cannot pass for one",
+			cr:   spoofedCertificateNameRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "bare-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+			},
+		},
+		{
+			name: "a request without a namespace cannot pass for one",
+			cr:   spoofedNamespaceRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name": "test-csr",
+			},
+		},
+		{
+			name: "Kubernetes labels with a reserved key prefix are not propagated",
+			cr:   reservedPrefixRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+				"team": "platform",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildCertificateLabels(tt.cr, tt.mode)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestBuildCertificateLabelsLimit(t *testing.T) {
+	bigLabels := make(map[string]string)
+	for i := range 70 {
+		bigLabels[fmt.Sprintf("key-%d", i)] = "val"
+	}
+
+	cr := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "massive-label-request",
+			Namespace: "default",
+			Labels:    bigLabels,
+		},
+	})
+
+	got := buildCertificateLabels(cr, v1beta1.CertificateMetadataPropagationModeLabels)
+	assert.Len(t, got, 64) // the maximum number of labels on a Google Cloud resource
+
+	// Provenance labels are added first, so they are never the ones that are dropped.
+	assert.Equal(t, "massive-label-request", got["cert-manager-io_certificate-request-name"])
+	assert.Equal(t, "default", got["cert-manager-io_certificate-request-namespace"])
 }

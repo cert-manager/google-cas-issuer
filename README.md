@@ -316,6 +316,88 @@ NAME                                     TYPE                                  D
 secret/demo-cert-tls                     kubernetes.io/tls                     3      1m
 ```
 
+### Metadata Propagation (Label Sync)
+
+The Google CAS Issuer can synchronize Kubernetes metadata to the issued certificates in Google Cloud CAS using **Labels**. This lets a central team see, from within Google Cloud, which Kubernetes resource each certificate was issued for.
+
+Metadata propagation is **opt-in** and disabled by default: unless you enable it, no Kubernetes metadata is sent to Google Cloud. Enable it per issuer with the `certificateMetadataPropagationMode` field of a `GoogleCASIssuer` or `GoogleCASClusterIssuer`:
+
+| Mode | Labels set on the Google CAS certificate |
+| :--- | :--- |
+| `None` (default) | No labels. |
+| `Provenance` | The provenance labels described below. |
+| `Labels` | The provenance labels, and the labels of the `Certificate` (or `CertificateRequest` / `CertificateSigningRequest`). |
+
+```yaml
+apiVersion: cas-issuer.jetstack.io/v1beta1
+kind: GoogleCASClusterIssuer
+metadata:
+  name: googlecasclusterissuer-sample
+spec:
+  project: $PROJECT_ID
+  location: us-east1
+  caPoolId: my-pool
+  certificateMetadataPropagationMode: Labels
+```
+
+#### Operational Provenance Labels
+
+In the `Provenance` and `Labels` modes, the issuer injects the following provenance metadata into every issued certificate:
+
+- `cert-manager-io_certificate-name`: The name of the parent `Certificate` resource. Not set if the request was not created for a `Certificate`.
+- `cert-manager-io_certificate-request-name`: The name of the `CertificateRequest` resource.
+- `cert-manager-io_certificate-request-namespace`: The namespace where the request originated. Not set for Kubernetes `CertificateSigningRequest` resources, which have no namespace.
+
+#### Synchronization of Labels
+
+In the `Labels` mode, all labels defined in the `metadata.labels` section of a `Certificate` (or `CertificateRequest`) are also propagated to the Google CAS certificate. This includes the labels added by deployment tools such as Helm or Argo CD.
+
+- **Sanitization**: Kubernetes labels are automatically sanitized to meet GCP's strict requirements (lowercase, alphanumeric, dashes, or underscores; max 63 characters; empty values are kept).
+- **Key Mapping**: If a label key starts with a non-alphabetic character (like a number), it is automatically prefixed with `l-` to comply with GCP API constraints.
+- **Reserved keys**: Kubernetes labels whose keys start with `cert-manager-io_` or `cert-manager_io_` after sanitization are not propagated, so that they cannot pass for provenance labels. This includes labels with the `cert-manager.io/` prefix.
+- **Conflicts**: If two label keys are identical after sanitization, the first one in alphabetical order is kept.
+- **Limit**: At most 64 labels are set on a certificate, the maximum that Google Cloud allows. The provenance labels are set first, then the Kubernetes labels in alphabetical order of their keys until the limit is reached.
+
+#### Example
+
+With the issuer above, the following `Certificate`:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: my-app-cert
+  namespace: production
+  labels:
+    # These will appear in the Google Cloud CAS Console
+    team: "platform-identity"
+    cost-center: "442"
+spec:
+  secretName: my-app-cert-tls
+  dnsNames:
+    - my-app.example.com
+  issuerRef:
+    group: cas-issuer.jetstack.io
+    kind: GoogleCASClusterIssuer
+    name: googlecasclusterissuer-sample
+```
+
+is issued in Google CAS with these labels:
+
+| Label key | Label value |
+| :--- | :--- |
+| `team` | `platform-identity` |
+| `cost-center` | `442` |
+| `cert-manager-io_certificate-name` | `my-app-cert` |
+| `cert-manager-io_certificate-request-name` | `my-app-cert-1` |
+| `cert-manager-io_certificate-request-namespace` | `production` |
+
+#### Limitations
+
+- Labels are set once, when the certificate is issued. Changing the labels of a `Certificate` does not update the certificates that were already issued in Google CAS; the new labels are used from the next issuance, for example at renewal.
+- Sanitization can alter values. For example, a `Certificate` named `my.app.example.com` is labelled `my_app_example_com`, and values longer than 63 characters are truncated.
+- Keys are truncated to 63 characters too. Kubernetes label keys can be longer, with a prefix of up to 253 characters (`<prefix>/<name>`), so two keys that share a long prefix can become identical. Only the first one in alphabetical order is kept.
+
 ## Continuous Integration
 
 This project uses GitHub Actions to run continuous integration tests.
