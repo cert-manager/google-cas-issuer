@@ -126,7 +126,7 @@ tools += go-licenses=v2.0.0-20250821024731-e4be79958780
 tools += gotestsum=v1.13.0
 # https://pkg.go.dev/sigs.k8s.io/kustomize/kustomize/v5?tab=versions
 # renovate: datasource=go packageName=sigs.k8s.io/kustomize/kustomize/v5
-tools += kustomize=v5.8.2
+tools += kustomize=v5.8.3
 # https://pkg.go.dev/github.com/itchyny/gojq?tab=versions
 # renovate: datasource=go packageName=github.com/itchyny/gojq
 tools += gojq=v0.12.19
@@ -163,7 +163,7 @@ tools += klone=v0.3.0
 tools += goreleaser=v2.18.2
 # https://pkg.go.dev/github.com/anchore/syft/cmd/syft?tab=versions
 # renovate: datasource=go packageName=github.com/anchore/syft
-tools += syft=v1.54.0
+tools += syft=v1.54.1
 # https://github.com/cert-manager/helm-tool/releases
 # renovate: datasource=github-releases packageName=cert-manager/helm-tool
 tools += helm-tool=v0.6.0
@@ -225,7 +225,7 @@ tools += defaulter-gen=$(K8S_CODEGEN_VERSION)
 tools += conversion-gen=$(K8S_CODEGEN_VERSION)
 # https://github.com/kubernetes/kube-openapi
 # renovate: datasource=go packageName=k8s.io/kube-openapi
-tools += openapi-gen=v0.0.0-20261001230523-97fa35140926
+tools += openapi-gen=v0.0.0-20261007072838-e2e80c32a35f
 
 # https://raw.githubusercontent.com/kubernetes-sigs/controller-tools/master/envtest-releases.yaml
 # FIXME: Find a way to configure Renovate to suggest upgrades
