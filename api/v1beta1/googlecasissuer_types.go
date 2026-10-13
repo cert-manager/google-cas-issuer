@@ -54,6 +54,14 @@ type GoogleCASIssuerSpec struct {
 	// "PoolCAs": ca.crt contains all root CA certificates of all ENABLED, DISABLED, or STAGED Certificate Authority Service CA Pool CAs that are not expired.
 	// +optional
 	CAFetchMode CAFetchMode `json:"caFetchMode,omitempty"`
+
+	// CertificateMetadataPropagationMode controls which Kubernetes metadata of a certificate request is propagated to Google Cloud, as labels on the Certificate Authority Service certificate.
+	// Possible values: "None" (default), "Provenance", "Labels".
+	// "None": no labels are set on the Certificate Authority Service certificate.
+	// "Provenance": the labels identify where the certificate came from: the name of the cert-manager Certificate, and the name and namespace of the certificate request.
+	// "Labels": the "Provenance" labels are set, and the Kubernetes labels of the certificate request are propagated as well. cert-manager copies all labels of a Certificate to its certificate requests.
+	// +optional
+	CertificateMetadataPropagationMode CertificateMetadataPropagationMode `json:"certificateMetadataPropagationMode,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=CA;PoolCAs
@@ -66,6 +74,21 @@ const (
 
 	// CAFetchModePoolCAs indicates that all root certificates in the CA pool should be fetched.
 	CAFetchModePoolCAs CAFetchMode = "PoolCAs"
+)
+
+// +kubebuilder:validation:Enum=None;Provenance;Labels
+// CertificateMetadataPropagationMode controls which Kubernetes metadata is propagated as labels to Certificate Authority Service certificates.
+type CertificateMetadataPropagationMode string
+
+const (
+	// CertificateMetadataPropagationModeNone indicates that no Kubernetes metadata should be propagated.
+	CertificateMetadataPropagationModeNone CertificateMetadataPropagationMode = "None"
+
+	// CertificateMetadataPropagationModeProvenance indicates that only the labels identifying where the certificate came from should be propagated.
+	CertificateMetadataPropagationModeProvenance CertificateMetadataPropagationMode = "Provenance"
+
+	// CertificateMetadataPropagationModeLabels indicates that the Kubernetes labels of the certificate request should be propagated, in addition to the provenance labels.
+	CertificateMetadataPropagationModeLabels CertificateMetadataPropagationMode = "Labels"
 )
 
 // +kubebuilder:object:root=true
