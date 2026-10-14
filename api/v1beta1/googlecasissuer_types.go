@@ -24,34 +24,16 @@ import (
 
 // GoogleCASIssuerSpec defines the desired state of GoogleCASIssuer
 type GoogleCASIssuerSpec struct {
-	// Project is the Google Cloud Project ID
-	Project string `json:"project,omitempty"`
-
-	// Location is the Google Cloud Project Location
-	Location string `json:"location,omitempty"`
-
-	// CaPoolId is the id of the CA pool to issue certificates from
-	CaPoolId string `json:"caPoolId,omitempty"`
-
-	// CertificateAuthorityId is specific certificate authority to
-	// use to sign. Omit in order to load balance across all CAs
-	// in the pool
-	// +optional
-	CertificateAuthorityId string `json:"certificateAuthorityId,omitempty"`
+	CAPool `json:",inline"`
 
 	// Credentials is a reference to a Kubernetes Secret Key that contains Google Service Account Credentials
 	// +optional
 	Credentials cmmetav1.SecretKeySelector `json:"credentials,omitzero"`
 
-	// CertificateTemplate is specific certificate template to
-	// use. Omit to not specify a template
-	// +optional
-	CertificateTemplate string `json:"certificateTemplate,omitempty"`
-
 	// Fallbacks is an ordered list of fallback CA pools to try if the primary pool fails.
 	// The controller will attempt each fallback in order until one succeeds.
 	// +optional
-	Fallbacks []FallbackCAPool `json:"fallbacks,omitempty"`
+	Fallbacks []CAPool `json:"fallbacks,omitempty"`
 
 	// CAFetchMode controls how the CA certificate chain is fetched and constructed.
 	// Possible values: "CA" (default), "PoolCAs".
@@ -61,31 +43,32 @@ type GoogleCASIssuerSpec struct {
 	CAFetchMode CAFetchMode `json:"caFetchMode,omitempty"`
 }
 
-// FallbackCAPool defines a fallback CA pool configuration for failover.
-// If the primary CA pool fails, the controller will attempt each fallback in order.
-type FallbackCAPool struct {
-	// Project is the Google Cloud Project ID for this fallback pool.
-	// If omitted, defaults to the primary spec.project.
+// CAPool defines a Google Cloud Certificate Authority Service CA pool configuration.
+type CAPool struct {
+	// Project is the Google Cloud Project ID for the CA pool.
+	// Required on the primary spec; if omitted on a fallback pool, defaults to spec.project.
 	// +optional
 	// +kubebuilder:validation:MinLength=1
 	Project string `json:"project,omitempty"`
 
-	// CaPoolId is the CA pool ID for the fallback pool.
-	// +kubebuilder:validation:MinLength=1
-	CaPoolId string `json:"caPoolId"`
-
-	// Location is the Google Cloud location of the fallback pool.
+	// Location is the Google Cloud Project Location of the CA pool.
 	// +kubebuilder:validation:MinLength=1
 	Location string `json:"location"`
 
-	// CertificateTemplate is the certificate template to use with this fallback pool.
-	// +optional
-	CertificateTemplate string `json:"certificateTemplate,omitempty"`
+	// CaPoolId is the ID of the CA pool to issue certificates from.
+	// +kubebuilder:validation:MinLength=1
+	CaPoolId string `json:"caPoolId"`
 
-	// CertificateAuthorityId is a specific certificate authority within the fallback pool.
-	// Omit to load balance across all CAs in the pool.
+	// CertificateAuthorityId is a specific certificate authority to
+	// use to sign. Omit in order to load balance across all CAs
+	// in the pool.
 	// +optional
 	CertificateAuthorityId string `json:"certificateAuthorityId,omitempty"`
+
+	// CertificateTemplate is a specific certificate template to
+	// use. Omit to not specify a template.
+	// +optional
+	CertificateTemplate string `json:"certificateTemplate,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=CA;PoolCAs

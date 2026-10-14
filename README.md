@@ -316,6 +316,8 @@ spec:
 | `certificateAuthorityId` | Specific CA within the fallback pool. Omit to load balance across all CAs. |
 
 > **IAM:** The service account must have `roles/privateca.certificateRequester` on **all** configured CA pools (primary and all fallbacks). If `caFetchMode: PoolCAs` is configured, the service account also requires `roles/privateca.poolReader` on all configured CA pools.
+>
+> **Note on Security & Policies:** Failover is triggered on any signing error from the primary pool (not only transient availability errors). Administrators must ensure that all fallback CA pools are configured with the same restrictive issuance policies and certificate templates as the primary pool so that a CSR rejected by the primary pool's policy is not inadvertently signed by a more permissive fallback pool.
 
 ### Creating your first certificate
 
