@@ -23,7 +23,9 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"maps"
 	"math/rand/v2"
+	"slices"
 	"strings"
 	"time"
 
@@ -136,6 +138,7 @@ func (o *GoogleCAS) Sign(ctx context.Context, cr signer.CertificateRequestObject
 				Nanos:   0,
 			},
 			CertificateTemplate: issuerSpec.CertificateTemplate,
+			Labels:              buildCertificateLabels(cr, issuerSpec.CertificateMetadataPropagationMode),
 		},
 		RequestId:                     uuid.New().String(),
 		IssuingCertificateAuthorityId: issuerSpec.CertificateAuthorityId,
@@ -297,4 +300,118 @@ func filterAndDeduplicateCAs(caChains []*casapi.FetchCaCertsResponse_CertChain) 
 		}
 	}
 	return caBuf.Bytes(), nil
+}
+
+// maxCertificateLabels is the maximum number of labels that Google Cloud allows on a resource.
+const maxCertificateLabels = 64
+
+// Keys of the provenance labels. They are valid GCP label keys as they are.
+const (
+	certificateNameLabelKey             = "cert-manager-io_certificate-name"
+	certificateRequestNameLabelKey      = "cert-manager-io_certificate-request-name"
+	certificateRequestNamespaceLabelKey = "cert-manager-io_certificate-request-namespace"
+)
+
+// buildCertificateLabels constructs a map of labels to be applied to a Google CAS Certificate,
+// according to the CertificateMetadataPropagationMode of the issuer. It returns nil unless the
+// issuer has opted in, so by default no labels are set.
+// In "Provenance" mode it sets the provenance metadata: the name of the parent Certificate, and
+// the name and namespace of the CertificateRequest.
+// In "Labels" mode it additionally extracts native Kubernetes labels from the CertificateRequest
+// (which natively inherits them from the parent Certificate), and applies GCP-compliant
+// sanitization. To ensure idempotency and auditability, it injects provenance metadata first
+// and then processes the remaining labels in a deterministic, alphabetically sorted order until
+// the maxCertificateLabels limit is reached.
+func buildCertificateLabels(cr signer.CertificateRequestObject, mode issuersv1beta1.CertificateMetadataPropagationMode) map[string]string {
+	// Propagation is opt-in: no Kubernetes metadata leaves the cluster unless the issuer asks for it.
+	if mode != issuersv1beta1.CertificateMetadataPropagationModeProvenance &&
+		mode != issuersv1beta1.CertificateMetadataPropagationModeLabels {
+		return nil
+	}
+
+	labels := make(map[string]string)
+
+	addLabel := func(key, value string) {
+		if key == "" || len(labels) >= maxCertificateLabels {
+			return
+		}
+		if _, exists := labels[key]; exists {
+			return
+		}
+		labels[key] = value
+	}
+
+	// Auto-inject provenance first so it is not dropped at the cap.
+	if parentCertName := cr.GetAnnotations()[cmapi.CertificateNameKey]; parentCertName != "" {
+		addLabel(certificateNameLabelKey, sanitizeGCPLabel(parentCertName, false))
+	}
+	addLabel(certificateRequestNameLabelKey, sanitizeGCPLabel(cr.GetName(), false))
+	// Kubernetes CertificateSigningRequests are cluster-scoped and have no namespace.
+	if namespace := cr.GetNamespace(); namespace != "" {
+		addLabel(certificateRequestNamespaceLabelKey, sanitizeGCPLabel(namespace, false))
+	}
+
+	if mode == issuersv1beta1.CertificateMetadataPropagationModeLabels {
+		nativeLabels := cr.GetLabels()
+		for _, k := range slices.Sorted(maps.Keys(nativeLabels)) {
+			key := sanitizeGCPLabel(k, true)
+			if hasReservedLabelKeyPrefix(key) {
+				continue
+			}
+			addLabel(key, sanitizeGCPLabel(nativeLabels[k], false))
+		}
+	}
+
+	return labels
+}
+
+// reservedLabelKeyPrefixes are the label key prefixes reserved for the provenance labels.
+var reservedLabelKeyPrefixes = []string{"cert-manager-io_", "cert-manager_io_"}
+
+// hasReservedLabelKeyPrefix reports whether a sanitized label key starts with a prefix that is
+// reserved for the provenance labels. Kubernetes labels with such keys are not propagated, so
+// that they cannot pass for provenance labels, including the ones that are not set on a request.
+func hasReservedLabelKeyPrefix(key string) bool {
+	for _, prefix := range reservedLabelKeyPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// sanitizeGCPLabel ensures that a string conforms to the strict requirements for GCP labels.
+// GCP Constraints for both Keys and Values:
+// 1. Length must be at most 63 characters (after sanitization). Values can be empty, keys
+// must be at least 1 character long.
+// 2. Can only contain lowercase letters, numeric characters, underscores (_), and dashes (-).
+//
+// Additional Constraint for Keys (when isKey is true):
+// 3. Must start with a lowercase letter.
+//
+// This function forces lowercase, replaces invalid characters with underscores, for keys
+// prefixes with 'l-' if the first character is non-alphabetic, and truncates the result to
+// 63 characters. An empty string is returned as is: an empty value is valid, and the caller
+// skips empty keys.
+func sanitizeGCPLabel(s string, isKey bool) string {
+	if s == "" {
+		return ""
+	}
+	s = strings.ToLower(s)
+	if isKey && (s[0] < 'a' || s[0] > 'z') {
+		s = "l-" + s
+	}
+	var sb strings.Builder
+	for _, ch := range s {
+		if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_' || ch == '-' {
+			sb.WriteRune(ch)
+		} else {
+			sb.WriteRune('_')
+		}
+	}
+	res := sb.String()
+	if len(res) > 63 {
+		return res[:63]
+	}
+	return res
 }
