@@ -24,29 +24,16 @@ import (
 
 // GoogleCASIssuerSpec defines the desired state of GoogleCASIssuer
 type GoogleCASIssuerSpec struct {
-	// Project is the Google Cloud Project ID
-	Project string `json:"project,omitempty"`
-
-	// Location is the Google Cloud Project Location
-	Location string `json:"location,omitempty"`
-
-	// CaPoolId is the id of the CA pool to issue certificates from
-	CaPoolId string `json:"caPoolId,omitempty"`
-
-	// CertificateAuthorityId is specific certificate authority to
-	// use to sign. Omit in order to load balance across all CAs
-	// in the pool
-	// +optional
-	CertificateAuthorityId string `json:"certificateAuthorityId,omitempty"`
+	CAPool `json:",inline"`
 
 	// Credentials is a reference to a Kubernetes Secret Key that contains Google Service Account Credentials
 	// +optional
 	Credentials cmmetav1.SecretKeySelector `json:"credentials,omitzero"`
 
-	// CertificateTemplate is specific certificate template to
-	// use. Omit to not specify a template
+	// Fallbacks is an ordered list of fallback CA pools to try if the primary pool fails.
+	// The controller will attempt each fallback in order until one succeeds.
 	// +optional
-	CertificateTemplate string `json:"certificateTemplate,omitempty"`
+	Fallbacks []CAPool `json:"fallbacks,omitempty"`
 
 	// CAFetchMode controls how the CA certificate chain is fetched and constructed.
 	// Possible values: "CA" (default), "PoolCAs".
@@ -54,6 +41,34 @@ type GoogleCASIssuerSpec struct {
 	// "PoolCAs": ca.crt contains all root CA certificates of all ENABLED, DISABLED, or STAGED Certificate Authority Service CA Pool CAs that are not expired.
 	// +optional
 	CAFetchMode CAFetchMode `json:"caFetchMode,omitempty"`
+}
+
+// CAPool defines a Google Cloud Certificate Authority Service CA pool configuration.
+type CAPool struct {
+	// Project is the Google Cloud Project ID for the CA pool.
+	// Required on the primary spec; if omitted on a fallback pool, defaults to spec.project.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	Project string `json:"project,omitempty"`
+
+	// Location is the Google Cloud Project Location of the CA pool.
+	// +kubebuilder:validation:MinLength=1
+	Location string `json:"location"`
+
+	// CaPoolId is the ID of the CA pool to issue certificates from.
+	// +kubebuilder:validation:MinLength=1
+	CaPoolId string `json:"caPoolId"`
+
+	// CertificateAuthorityId is a specific certificate authority to
+	// use to sign. Omit in order to load balance across all CAs
+	// in the pool.
+	// +optional
+	CertificateAuthorityId string `json:"certificateAuthorityId,omitempty"`
+
+	// CertificateTemplate is a specific certificate template to
+	// use. Omit to not specify a template.
+	// +optional
+	CertificateTemplate string `json:"certificateTemplate,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=CA;PoolCAs
