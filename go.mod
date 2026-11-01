@@ -3,7 +3,7 @@ module github.com/cert-manager/google-cas-issuer
 go 1.26.0
 
 require (
-	cloud.google.com/go/security v1.29.0
+	cloud.google.com/go/security v1.29.1
 	github.com/cert-manager/cert-manager v1.21.3
 	github.com/cert-manager/issuer-lib v0.12.1
 	github.com/google/uuid v1.6.0
@@ -14,7 +14,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
 	google.golang.org/api v0.310.0
-	google.golang.org/grpc v1.84.0
+	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
 	k8s.io/api v0.37.2
 	k8s.io/apimachinery v0.37.2
