@@ -17,7 +17,9 @@ limitations under the License.
 package helper
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
@@ -25,10 +27,14 @@ import (
 	"fmt"
 	"time"
 
+	privateca "cloud.google.com/go/security/privateca/apiv1"
+	casapi "cloud.google.com/go/security/privateca/apiv1/privatecapb"
 	apiutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	cmversioned "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned"
+	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -341,4 +347,106 @@ func (h *Helper) VerifyMultiplePoolCAs(namespace, name string) error {
 	}
 
 	return nil
+}
+
+// GetIssuedCASCertificateLabels retrieves the issued Google CAS Certificate resource
+// matching the leaf certificate stored for the Kubernetes Certificate namespace/name,
+// and returns its GCP labels along with the Kubernetes CertificateRequest name.
+func (h *Helper) GetIssuedCASCertificateLabels(
+	ctx context.Context,
+	credsFile, project, location, caPoolID, namespace, certName string,
+) (map[string]string, string, error) {
+	certificate, err := h.cmClient.CertmanagerV1().Certificates(namespace).Get(ctx, certName, metav1.GetOptions{})
+	if err != nil {
+		return nil, "", fmt.Errorf("couldn't get certificate %s/%s: %w", namespace, certName, err)
+	}
+
+	secret, err := h.kubeClient.CoreV1().Secrets(namespace).Get(ctx, certificate.Spec.SecretName, metav1.GetOptions{})
+	if err != nil {
+		return nil, "", fmt.Errorf("couldn't retrieve secret %s/%s: %w", namespace, certificate.Spec.SecretName, err)
+	}
+
+	tlsCrt, found := secret.Data["tls.crt"]
+	if !found {
+		return nil, "", fmt.Errorf("tls.crt not found in secret %s/%s", namespace, certificate.Spec.SecretName)
+	}
+	leafBlock, _ := pem.Decode(tlsCrt)
+	if leafBlock == nil || leafBlock.Type != "CERTIFICATE" {
+		return nil, "", fmt.Errorf("failed to decode leaf certificate PEM in secret %s/%s", namespace, certificate.Spec.SecretName)
+	}
+	leafCert, err := x509.ParseCertificate(leafBlock.Bytes)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to parse leaf certificate in secret %s/%s: %w", namespace, certificate.Spec.SecretName, err)
+	}
+
+	crList, err := h.cmClient.CertmanagerV1().CertificateRequests(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, "", fmt.Errorf("couldn't list certificate requests in %s: %w", namespace, err)
+	}
+	var crName string
+	for _, cr := range crList.Items {
+		if cr.Annotations[cmapi.CertificateNameKey] != certName {
+			continue
+		}
+		crBlock, _ := pem.Decode(cr.Status.Certificate)
+		if crBlock != nil && bytes.Equal(crBlock.Bytes, leafBlock.Bytes) {
+			crName = cr.Name
+			break
+		}
+		if crName == "" {
+			crName = cr.Name
+		}
+	}
+	if crName == "" {
+		return nil, "", fmt.Errorf("couldn't find CertificateRequest for certificate %s/%s", namespace, certName)
+	}
+
+	var opts []option.ClientOption
+	if credsFile != "" {
+		opts = append(opts, option.WithCredentialsFile(credsFile))
+	}
+	casClient, err := privateca.NewCertificateAuthorityClient(ctx, opts...)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create CAS client: %w", err)
+	}
+	defer casClient.Close()
+
+	parent := fmt.Sprintf("projects/%s/locations/%s/caPools/%s", project, location, caPoolID)
+	filter := fmt.Sprintf(
+		"certificate_description.cert_fingerprint.sha256_hash = %q",
+		fmt.Sprintf("%x", sha256.Sum256(leafBlock.Bytes)),
+	)
+	if leafCert.Subject.CommonName != "" {
+		filter = fmt.Sprintf(
+			"certificate_description.subject_description.subject.common_name = %q",
+			leafCert.Subject.CommonName,
+		)
+	}
+
+	var labels map[string]string
+	err = wait.PollUntilContextTimeout(ctx, time.Second, 15*time.Second, true, func(ctx context.Context) (bool, error) {
+		it := casClient.ListCertificates(ctx, &casapi.ListCertificatesRequest{
+			Parent: parent,
+			Filter: filter,
+		})
+		for {
+			casCert, err := it.Next()
+			if errors.Is(err, iterator.Done) {
+				return false, nil
+			}
+			if err != nil {
+				return false, fmt.Errorf("failed to list CAS certificates in %s: %w", parent, err)
+			}
+			block, _ := pem.Decode([]byte(casCert.GetPemCertificate()))
+			if block != nil && bytes.Equal(block.Bytes, leafBlock.Bytes) {
+				labels = casCert.GetLabels()
+				return true, nil
+			}
+		}
+	})
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to find issued CAS certificate for %s/%s in %s: %w", namespace, certName, parent, err)
+	}
+
+	return labels, crName, nil
 }

@@ -70,6 +70,21 @@ spec:
   caFetchMode: {{ .CAFetchMode }}
 `
 
+	issuerWithMetadataPropagationModeYAML string = `apiVersion: cas-issuer.jetstack.io/v1beta1
+kind: GoogleCASIssuer
+metadata:
+  name: {{ .Name }}
+  namespace: {{ .Namespace }}
+spec:
+  project: {{ .Project }}
+  location: {{ .Location }}
+  caPoolId: {{ .Pool }}
+  credentials:
+    name: {{ .SecretName }}
+    key: "{{ .SecretKey }}"
+  certificateMetadataPropagationMode: {{ .CertificateMetadataPropagationMode }}
+`
+
 	clusterIssuerYaml string = `apiVersion: cas-issuer.jetstack.io/v1beta1
 kind: GoogleCASClusterIssuer
 metadata:
@@ -102,17 +117,19 @@ spec:
 )
 
 type templateConfig struct {
-	Name             string
-	Namespace        string
-	Project          string
-	Location         string
-	Pool             string
-	SecretName       string
-	SecretKey        string
-	CAFetchMode      string
-	FallbackProject  string
-	FallbackCaPoolId string
-	FallbackLocation string
+	Name                               string
+	Namespace                          string
+	Project                            string
+	Location                           string
+	Pool                               string
+	SecretName                         string
+	SecretKey                          string
+	CAFetchMode                        string
+	FallbackProject                    string
+	FallbackCaPoolId                   string
+	FallbackLocation                   string
+	CertificateMetadataPropagationMode string
+	CertificateLabels                  map[string]string
 }
 
 var _ = framework.CasesDescribe("issuers", func() {
@@ -181,6 +198,7 @@ var _ = framework.CasesDescribe("issuers", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      certName,
 				Namespace: cfg.Namespace,
+				Labels:    t.CertificateLabels,
 			},
 			Spec: certmanagerv1.CertificateSpec{
 				SecretName:  certName,
@@ -204,19 +222,35 @@ var _ = framework.CasesDescribe("issuers", func() {
 		return certName
 	}
 
-	It("Tests Issuer functionality", func() {
+	It("Tests Issuer functionality", func(ctx SpecContext) {
 		t := &templateConfig{
 			Name:      "issuer-" + util.RandomString(5),
 			Namespace: cfg.Namespace,
 			Project:   cfg.Project,
 			Location:  cfg.Location,
 			Pool:      cfg.CaPoolId,
+			CertificateLabels: map[string]string{
+				"team": "platform",
+			},
 		}
 		certName := createIssuerAndCertificate(t, issuerYAML, 10*time.Second)
 
 		By("Verifying chain and CA")
 		err := f.Helper().VerifyCMCertificate(cfg.Namespace, certName)
 		Expect(err).NotTo(HaveOccurred())
+
+		By("Verifying no labels are set on the issued Google CAS certificate by default")
+		labels, _, err := f.Helper().GetIssuedCASCertificateLabels(
+			ctx,
+			os.Getenv("TEST_GOOGLE_APPLICATION_CREDENTIALS"),
+			cfg.Project,
+			cfg.Location,
+			cfg.CaPoolId,
+			cfg.Namespace,
+			certName,
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(labels).To(BeEmpty())
 	})
 
 	It("Tests ClusterIssuer functionality", func() {
@@ -293,5 +327,48 @@ var _ = framework.CasesDescribe("issuers", func() {
 		By("Verifying chain and CA")
 		err := f.Helper().VerifyCMCertificate(cfg.Namespace, certName)
 		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("Tests Issuer with certificateMetadataPropagationMode Labels", func(ctx SpecContext) {
+		t := &templateConfig{
+			Name:                               "issuer-labels-" + util.RandomString(5),
+			Namespace:                          cfg.Namespace,
+			Project:                            cfg.Project,
+			Location:                           cfg.Location,
+			Pool:                               cfg.CaPoolId,
+			CertificateMetadataPropagationMode: "Labels",
+			CertificateLabels: map[string]string{
+				"Team.Name":               "Platform_Identity", // uppercase letters and a dot
+				"example.com/Cost-Center": "442",               // a key with a prefix
+				"1st-region":              "us-east1",          // a key that starts with a number
+				"environment":             "",                  // an empty value
+			},
+		}
+		certName := createIssuerAndCertificate(t, issuerWithMetadataPropagationModeYAML, 10*time.Second)
+
+		By("Verifying chain and CA")
+		err := f.Helper().VerifyCMCertificate(cfg.Namespace, certName)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Verifying labels on the issued Google CAS certificate")
+		labels, crName, err := f.Helper().GetIssuedCASCertificateLabels(
+			ctx,
+			os.Getenv("TEST_GOOGLE_APPLICATION_CREDENTIALS"),
+			cfg.Project,
+			cfg.Location,
+			cfg.CaPoolId,
+			cfg.Namespace,
+			certName,
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(labels).To(Equal(map[string]string{
+			"cert-manager-io_certificate-name":              certName,
+			"cert-manager-io_certificate-request-name":      crName,
+			"cert-manager-io_certificate-request-namespace": cfg.Namespace,
+			"team_name":               "platform_identity",
+			"example_com_cost-center": "442",
+			"l-1st-region":            "us-east1",
+			"environment":             "",
+		}))
 	})
 })
