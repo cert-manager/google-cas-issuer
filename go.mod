@@ -8,7 +8,7 @@ require (
 	github.com/cert-manager/issuer-lib v0.12.1
 	github.com/google/uuid v1.6.0
 	github.com/googleapis/gax-go/v2 v2.27.0
-	github.com/onsi/ginkgo/v2 v2.33.1
+	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.44.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
