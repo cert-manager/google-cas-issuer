@@ -32,12 +32,17 @@ import (
 	"unicode/utf8"
 
 	casapi "cloud.google.com/go/security/privateca/apiv1/privatecapb"
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	issuerapi "github.com/cert-manager/issuer-lib/api/v1alpha1"
+	"github.com/cert-manager/issuer-lib/controllers/signer"
 	gax "github.com/googleapis/gax-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+	certificatesv1 "k8s.io/api/certificates/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cert-manager/google-cas-issuer/api/v1beta1"
 )
@@ -78,7 +83,9 @@ func TestBuildParentStringMissingPoolId(t *testing.T) {
 
 type fakeCertificateCreator struct {
 	createCertificateFn func(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error)
+	fetchCaCertsFn      func(ctx context.Context, req *casapi.FetchCaCertsRequest, opts ...gax.CallOption) (*casapi.FetchCaCertsResponse, error)
 	calls               []*casapi.CreateCertificateRequest
+	closed              bool
 }
 
 func (f *fakeCertificateCreator) CreateCertificate(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error) {
@@ -87,6 +94,18 @@ func (f *fakeCertificateCreator) CreateCertificate(ctx context.Context, req *cas
 		return f.createCertificateFn(ctx, req, opts...)
 	}
 	return nil, errors.New("not implemented")
+}
+
+func (f *fakeCertificateCreator) FetchCaCerts(ctx context.Context, req *casapi.FetchCaCertsRequest, opts ...gax.CallOption) (*casapi.FetchCaCertsResponse, error) {
+	if f.fetchCaCertsFn != nil {
+		return f.fetchCaCertsFn(ctx, req, opts...)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (f *fakeCertificateCreator) Close() error {
+	f.closed = true
+	return nil
 }
 
 func TestCreateCertificateWithFallback(t *testing.T) {
@@ -129,13 +148,44 @@ func TestCreateCertificateWithFallback(t *testing.T) {
 			},
 		}
 
-		resp, parent, err := createCertificateWithFallback(context.Background(), fake, baseSpec, testCSR, testDuration)
+		resp, parent, err := createCertificateWithFallback(context.Background(), fake, baseSpec, testCSR, testDuration, nil)
 
 		require.NoError(t, err)
 		assert.Equal(t, expectedCert, resp)
 		assert.Equal(t, primaryParent, parent)
 		require.Len(t, fake.calls, 1)
 		assert.Equal(t, primaryParent, fake.calls[0].Parent)
+		assert.Nil(t, fake.calls[0].Certificate.Labels)
+	})
+
+	t.Run("Propagates labels to primary and fallback CA pools", func(t *testing.T) {
+		expectedCert := &casapi.Certificate{Name: "fallback-1-cert"}
+		labels := map[string]string{
+			"cert-manager-io_certificate-name":              "my-cert",
+			"cert-manager-io_certificate-request-name":      "my-req",
+			"cert-manager-io_certificate-request-namespace": "default",
+			"team": "platform",
+		}
+		fake := &fakeCertificateCreator{
+			createCertificateFn: func(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error) {
+				if req.Parent == primaryParent {
+					return nil, errors.New("primary unavailable")
+				}
+				if req.Parent == fb1Parent {
+					return expectedCert, nil
+				}
+				return nil, errors.New("unexpected parent")
+			},
+		}
+
+		resp, parent, err := createCertificateWithFallback(context.Background(), fake, baseSpec, testCSR, testDuration, labels)
+
+		require.NoError(t, err)
+		assert.Equal(t, expectedCert, resp)
+		assert.Equal(t, fb1Parent, parent)
+		require.Len(t, fake.calls, 2)
+		assert.Equal(t, labels, fake.calls[0].Certificate.Labels)
+		assert.Equal(t, labels, fake.calls[1].Certificate.Labels)
 	})
 
 	t.Run("Primary fails, no fallbacks configured", func(t *testing.T) {
@@ -152,7 +202,7 @@ func TestCreateCertificateWithFallback(t *testing.T) {
 			},
 		}
 
-		resp, parent, err := createCertificateWithFallback(context.Background(), fake, specNoFallbacks, testCSR, testDuration)
+		resp, parent, err := createCertificateWithFallback(context.Background(), fake, specNoFallbacks, testCSR, testDuration, nil)
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "casClient.CreateCertificate failed: primary unavailable")
@@ -178,7 +228,7 @@ func TestCreateCertificateWithFallback(t *testing.T) {
 			},
 		}
 
-		resp, parent, err := createCertificateWithFallback(context.Background(), fake, baseSpec, testCSR, testDuration)
+		resp, parent, err := createCertificateWithFallback(context.Background(), fake, baseSpec, testCSR, testDuration, nil)
 
 		require.NoError(t, err)
 		assert.Equal(t, expectedCert, resp)
@@ -222,7 +272,7 @@ func TestCreateCertificateWithFallback(t *testing.T) {
 			},
 		}
 
-		resp, parent, err := createCertificateWithFallback(context.Background(), fake, baseSpec, testCSR, testDuration)
+		resp, parent, err := createCertificateWithFallback(context.Background(), fake, baseSpec, testCSR, testDuration, nil)
 
 		require.Error(t, err)
 		assert.Nil(t, resp)
@@ -257,7 +307,7 @@ func TestCreateCertificateWithFallback(t *testing.T) {
 			},
 		}
 
-		resp, parent, err := createCertificateWithFallback(context.Background(), fake, singleFallbackSpec, testCSR, testDuration)
+		resp, parent, err := createCertificateWithFallback(context.Background(), fake, singleFallbackSpec, testCSR, testDuration, nil)
 
 		require.Error(t, err)
 		assert.Nil(t, resp)
@@ -285,7 +335,7 @@ func TestCreateCertificateWithFallback(t *testing.T) {
 			},
 		}
 
-		resp, parent, err := createCertificateWithFallback(ctx, fake, baseSpec, testCSR, testDuration)
+		resp, parent, err := createCertificateWithFallback(ctx, fake, baseSpec, testCSR, testDuration, nil)
 
 		require.Error(t, err)
 		assert.Nil(t, resp)
@@ -313,7 +363,7 @@ func TestCreateCertificateWithFallback(t *testing.T) {
 			},
 		}
 
-		resp, parent, err := createCertificateWithFallback(ctx, fake, baseSpec, testCSR, testDuration)
+		resp, parent, err := createCertificateWithFallback(ctx, fake, baseSpec, testCSR, testDuration, nil)
 
 		require.Error(t, err)
 		assert.Nil(t, resp)
@@ -331,7 +381,7 @@ func TestCreateCertificateWithFallback(t *testing.T) {
 			},
 		}
 
-		resp, parent, err := createCertificateWithFallback(context.Background(), fake, baseSpec, testCSR, testDuration)
+		resp, parent, err := createCertificateWithFallback(context.Background(), fake, baseSpec, testCSR, testDuration, nil)
 
 		require.Error(t, err)
 		assert.Nil(t, resp)
@@ -347,7 +397,7 @@ func TestCreateCertificateWithFallback(t *testing.T) {
 		// Even if resource paths themselves exceed maxFallbackErrorLen, the final error is still capped
 		hugeSpec := *baseSpec
 		hugeSpec.Project = strings.Repeat("p", 1200)
-		_, _, hugeErr := createCertificateWithFallback(context.Background(), fake, &hugeSpec, testCSR, testDuration)
+		_, _, hugeErr := createCertificateWithFallback(context.Background(), fake, &hugeSpec, testCSR, testDuration, nil)
 		require.Error(t, hugeErr)
 		assert.LessOrEqual(t, len(hugeErr.Error()), maxFallbackErrorLen)
 		assert.Less(t, len(hugeErr.Error()), 1024)
@@ -365,7 +415,7 @@ func TestCreateCertificateWithFallback(t *testing.T) {
 			},
 		}
 
-		resp, parent, err := createCertificateWithFallback(ctx, fake, baseSpec, testCSR, testDuration)
+		resp, parent, err := createCertificateWithFallback(ctx, fake, baseSpec, testCSR, testDuration, nil)
 
 		require.Error(t, err)
 		assert.Nil(t, resp)
@@ -642,4 +692,475 @@ func generateTestCert(t *testing.T, isCA bool, subject, issuer string, expiry ti
 	}
 
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+}
+
+func TestSanitizeGCPLabel(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		isKey    bool
+		expected string
+	}{
+		{"Valid Label", "team-engineering", true, "team-engineering"},
+		{"Uppercase to Lowercase", "Team-Engineering", true, "team-engineering"},
+		{"Invalid Characters Replaced", "tenant/123@region", false, "tenant_123_region"},
+		{"Key Starts with Number", "123-tenant", true, "l-123-tenant"},
+		{"Key Starts with Alphabet", "a123-tenant", true, "a123-tenant"},
+		{"Value Starts with Number", "123-tenant", false, "123-tenant"},
+		{"Exceeds 63 characters", "this-is-a-very-long-label-that-is-way-longer-than-sixty-three-characters", true, "this-is-a-very-long-label-that-is-way-longer-than-sixty-three-c"},
+		{"Key Starts with Number and Exceeds 63 characters once Prefixed", "1" + strings.Repeat("a", 62), true, "l-1" + strings.Repeat("a", 60)},
+		{"Empty key", "", true, ""},
+		{"Empty value", "", false, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeGCPLabel(tt.input, tt.isKey)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func TestBuildCertificateLabels(t *testing.T) {
+	// A CertificateRequest as cert-manager creates it for a Certificate: the labels of
+	// the Certificate are copied and the name of the Certificate is set as an annotation.
+	labelledRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"cert-manager.io/certificate-name": "parent-cert",
+				"some-other-annotation":            "ignored",
+			},
+			Labels: map[string]string{
+				"team":         "platform",
+				"Cost-Center!": "999",     // uppercase and exclamation
+				"1st-region":   "us-east", // key starts with number
+			},
+		},
+	})
+
+	// A Kubernetes CertificateSigningRequest is cluster-scoped, so it has no namespace.
+	clusterScopedRequest := signer.CertificateRequestObjectFromCertificateSigningRequest(&certificatesv1.CertificateSigningRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-csr",
+		},
+	})
+
+	// A CertificateRequest that was not created for a Certificate and carries no metadata of its own.
+	bareRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "bare-request",
+			Namespace: "default",
+		},
+	})
+
+	// A CertificateRequest with a label that tries to pass for a provenance label.
+	spoofingRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"cert-manager-io_certificate-request-namespace": "another-namespace",
+			},
+		},
+	})
+
+	// A CertificateRequest that was not created for a Certificate, with a label that tries to
+	// pass for the provenance label of a Certificate.
+	spoofedCertificateNameRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "bare-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"cert-manager-io_certificate-name": "spoofed-cert",
+			},
+		},
+	})
+
+	// A Kubernetes CertificateSigningRequest, which has no namespace, with a label that tries to
+	// pass for the namespace provenance label.
+	spoofedNamespaceRequest := signer.CertificateRequestObjectFromCertificateSigningRequest(&certificatesv1.CertificateSigningRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-csr",
+			Labels: map[string]string{
+				"cert-manager-io_certificate-request-namespace": "kube-system",
+			},
+		},
+	})
+
+	// A CertificateRequest with two label keys that are identical once sanitized.
+	collidingKeysRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"Cost-Center": "uppercase-key",
+				"cost-center": "lowercase-key",
+			},
+		},
+	})
+
+	// A CertificateRequest with two label keys that share a prefix longer than a GCP label key,
+	// so that both are cut to the same 63 characters.
+	longPrefixRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"cost-attribution.platform-engineering.infrastructure.example.com/owner": "owner",
+				"cost-attribution.platform-engineering.infrastructure.example.com/team":  "team",
+			},
+		},
+	})
+
+	// A CertificateRequest with a label that has an empty value.
+	emptyValueRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"environment.example.com/prod": "",
+			},
+		},
+	})
+
+	// A CertificateRequest with labels whose keys start with a reserved prefix once sanitized.
+	reservedPrefixRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-request",
+			Namespace: "default",
+			Labels: map[string]string{
+				"Cert-Manager-IO_owner":            "spoofed", // sanitized to cert-manager-io_owner
+				"cert-manager.io/certificate-name": "spoofed", // sanitized to cert-manager_io_certificate-name
+				"cert_manager.io/certificate-name": "spoofed", // sanitized to cert_manager_io_certificate-name
+				"cert_manager-io/owner":            "spoofed", // sanitized to cert_manager-io_owner
+				"team":                             "platform",
+			},
+		},
+	})
+
+	// A synthetic CertificateRequest with no name, namespace, annotations, or labels.
+	emptyMetadataRequest := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{})
+
+	tests := []struct {
+		name string
+		cr   signer.CertificateRequestObject
+		mode v1beta1.CertificateMetadataPropagationMode
+		want map[string]string
+	}{
+		{
+			name: "nothing is propagated when the mode is not set",
+			cr:   labelledRequest,
+			mode: "",
+			want: nil,
+		},
+		{
+			name: "nothing is propagated in None mode",
+			cr:   labelledRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeNone,
+			want: nil,
+		},
+		{
+			name: "nothing is propagated for an unknown mode",
+			cr:   labelledRequest,
+			mode: "Everything",
+			want: nil,
+		},
+		{
+			name: "Provenance mode propagates only the provenance labels",
+			cr:   labelledRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeProvenance,
+			want: map[string]string{
+				"cert-manager-io_certificate-name":              "parent-cert",
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+			},
+		},
+		{
+			name: "a request without a namespace gets no namespace label",
+			cr:   clusterScopedRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeProvenance,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name": "test-csr",
+			},
+		},
+		{
+			name: "a request without any metadata returns nil",
+			cr:   emptyMetadataRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: nil,
+		},
+		{
+			name: "Labels mode propagates provenance and sanitized Kubernetes labels",
+			cr:   labelledRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-name":              "parent-cert",
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+				"team":         "platform",
+				"cost-center_": "999",
+				"l-1st-region": "us-east", // Key must be prepended with l-
+			},
+		},
+		{
+			name: "Labels mode without labels or annotations propagates the request provenance",
+			cr:   bareRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "bare-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+			},
+		},
+		{
+			name: "a Kubernetes label cannot override a provenance label",
+			cr:   spoofingRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+			},
+		},
+		{
+			name: "of two keys that are identical once sanitized, the first in alphabetical order is kept",
+			cr:   collidingKeysRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+				"cost-center": "uppercase-key",
+			},
+		},
+		{
+			name: "keys with a long shared prefix are cut to the same 63 characters and the first is kept",
+			cr:   longPrefixRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":                        "test-request",
+				"cert-manager-io_certificate-request-namespace":                   "default",
+				"cost-attribution_platform-engineering_infrastructure_example_co": "owner",
+			},
+		},
+		{
+			name: "empty label values are kept",
+			cr:   emptyValueRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+				"environment_example_com_prod":                  "",
+			},
+		},
+		{
+			name: "a request that was not created for a Certificate cannot pass for one",
+			cr:   spoofedCertificateNameRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "bare-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+			},
+		},
+		{
+			name: "a request without a namespace cannot pass for one",
+			cr:   spoofedNamespaceRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name": "test-csr",
+			},
+		},
+		{
+			name: "Kubernetes labels with a reserved key prefix are not propagated",
+			cr:   reservedPrefixRequest,
+			mode: v1beta1.CertificateMetadataPropagationModeLabels,
+			want: map[string]string{
+				"cert-manager-io_certificate-request-name":      "test-request",
+				"cert-manager-io_certificate-request-namespace": "default",
+				"team": "platform",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildCertificateLabels(tt.cr, tt.mode)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestBuildCertificateLabelsLimit(t *testing.T) {
+	bigLabels := make(map[string]string)
+	for i := range 70 {
+		bigLabels[fmt.Sprintf("key-%d", i)] = "val"
+	}
+
+	cr := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "massive-label-request",
+			Namespace: "default",
+			Labels:    bigLabels,
+		},
+	})
+
+	got := buildCertificateLabels(cr, v1beta1.CertificateMetadataPropagationModeLabels)
+	assert.Len(t, got, 64) // the maximum number of labels on a Google Cloud resource
+
+	// Provenance labels are added first, so they are never the ones that are dropped.
+	assert.Equal(t, "massive-label-request", got["cert-manager-io_certificate-request-name"])
+	assert.Equal(t, "default", got["cert-manager-io_certificate-request-namespace"])
+}
+
+func TestSignCertificateMetadataPropagation(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	csrDER, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
+		Subject: pkix.Name{CommonName: "test.example.com"},
+	}, key)
+	require.NoError(t, err)
+	csrPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csrDER})
+
+	cr := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-cert-1",
+			Namespace: "production",
+			Annotations: map[string]string{
+				cmapi.CertificateNameKey: "my-cert",
+			},
+			Labels: map[string]string{
+				"Team": "Platform",
+			},
+		},
+		Spec: cmapi.CertificateRequestSpec{
+			Request:  csrPEM,
+			Duration: &metav1.Duration{Duration: 24 * time.Hour},
+		},
+	})
+
+	labelledCR := signer.CertificateRequestObjectFromCertificateRequest(&cmapi.CertificateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-cert-1",
+			Namespace: "production",
+			Annotations: map[string]string{
+				cmapi.CertificateNameKey: "my-cert",
+			},
+			Labels: map[string]string{
+				"Team.Name":               "Platform_Identity", // uppercase letters and a dot
+				"example.com/Cost-Center": "442",               // a key with a prefix
+				"1st-region":              "us-east1",          // a key that starts with a number
+				"environment":             "",                  // an empty value
+			},
+		},
+		Spec: cmapi.CertificateRequestSpec{
+			Request:  csrPEM,
+			Duration: &metav1.Duration{Duration: 24 * time.Hour},
+		},
+	})
+
+	newSpec := func(mode v1beta1.CertificateMetadataPropagationMode) v1beta1.GoogleCASIssuerSpec {
+		return v1beta1.GoogleCASIssuerSpec{
+			CAPool: v1beta1.CAPool{
+				Project:  "test-project",
+				Location: "us-central1",
+				CaPoolId: "test-pool",
+			},
+			CertificateMetadataPropagationMode: mode,
+		}
+	}
+
+	tests := []struct {
+		name       string
+		cr         signer.CertificateRequestObject
+		issuer     issuerapi.Issuer
+		wantLabels map[string]string
+	}{
+		{
+			name: "Issuer with unset mode sends nil labels",
+			cr:   cr,
+			issuer: &v1beta1.GoogleCASIssuer{
+				ObjectMeta: metav1.ObjectMeta{Name: "issuer", Namespace: "production"},
+				Spec:       newSpec(""),
+			},
+			wantLabels: nil,
+		},
+		{
+			name: "Issuer with None mode sends nil labels",
+			cr:   cr,
+			issuer: &v1beta1.GoogleCASIssuer{
+				ObjectMeta: metav1.ObjectMeta{Name: "issuer", Namespace: "production"},
+				Spec:       newSpec(v1beta1.CertificateMetadataPropagationModeNone),
+			},
+			wantLabels: nil,
+		},
+		{
+			name: "Issuer with Provenance mode sends provenance labels",
+			cr:   cr,
+			issuer: &v1beta1.GoogleCASIssuer{
+				ObjectMeta: metav1.ObjectMeta{Name: "issuer", Namespace: "production"},
+				Spec:       newSpec(v1beta1.CertificateMetadataPropagationModeProvenance),
+			},
+			wantLabels: map[string]string{
+				"cert-manager-io_certificate-name":              "my-cert",
+				"cert-manager-io_certificate-request-name":      "my-cert-1",
+				"cert-manager-io_certificate-request-namespace": "production",
+			},
+		},
+		{
+			name: "Issuer with Labels mode sends provenance and sanitized labels",
+			cr:   labelledCR,
+			issuer: &v1beta1.GoogleCASIssuer{
+				ObjectMeta: metav1.ObjectMeta{Name: "issuer", Namespace: "production"},
+				Spec:       newSpec(v1beta1.CertificateMetadataPropagationModeLabels),
+			},
+			wantLabels: map[string]string{
+				"cert-manager-io_certificate-name":              "my-cert",
+				"cert-manager-io_certificate-request-name":      "my-cert-1",
+				"cert-manager-io_certificate-request-namespace": "production",
+				"team_name":               "platform_identity",
+				"example_com_cost-center": "442",
+				"l-1st-region":            "us-east1",
+				"environment":             "",
+			},
+		},
+		{
+			name: "ClusterIssuer with Labels mode sends provenance and sanitized labels",
+			cr:   cr,
+			issuer: &v1beta1.GoogleCASClusterIssuer{
+				ObjectMeta: metav1.ObjectMeta{Name: "cluster-issuer"},
+				Spec:       newSpec(v1beta1.CertificateMetadataPropagationModeLabels),
+			},
+			wantLabels: map[string]string{
+				"cert-manager-io_certificate-name":              "my-cert",
+				"cert-manager-io_certificate-request-name":      "my-cert-1",
+				"cert-manager-io_certificate-request-namespace": "production",
+				"team": "platform",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := &fakeCertificateCreator{
+				createCertificateFn: func(ctx context.Context, req *casapi.CreateCertificateRequest, opts ...gax.CallOption) (*casapi.Certificate, error) {
+					return &casapi.Certificate{
+						PemCertificate:      "-----BEGIN CERTIFICATE-----\nleaf\n-----END CERTIFICATE-----",
+						PemCertificateChain: []string{"-----BEGIN CERTIFICATE-----\nroot\n-----END CERTIFICATE-----"},
+					}, nil
+				},
+			}
+			controller := &GoogleCAS{
+				newCasClient: func(ctx context.Context, resourceNamespace string, issuerSpec *v1beta1.GoogleCASIssuerSpec) (casClient, error) {
+					return fake, nil
+				},
+			}
+
+			bundle, err := controller.Sign(context.Background(), tt.cr, tt.issuer)
+			require.NoError(t, err)
+			assert.NotEmpty(t, bundle.ChainPEM)
+			assert.NotEmpty(t, bundle.CAPEM)
+			assert.True(t, fake.closed)
+			require.Len(t, fake.calls, 1)
+			assert.Equal(t, tt.wantLabels, fake.calls[0].Certificate.Labels)
+		})
+	}
 }
