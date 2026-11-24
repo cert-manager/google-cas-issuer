@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	cloud.google.com/go/security v1.29.1
 	github.com/cert-manager/cert-manager v1.21.3
-	github.com/cert-manager/issuer-lib v0.12.1
+	github.com/cert-manager/issuer-lib v0.13.0
 	github.com/google/uuid v1.6.0
 	github.com/googleapis/gax-go/v2 v2.27.0
 	github.com/onsi/ginkgo/v2 v2.34.0
@@ -121,8 +121,8 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261104224025-d1e00e9f33ab // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/apiextensions-apiserver v0.37.0 // indirect
-	k8s.io/component-base v0.37.0 // indirect
+	k8s.io/apiextensions-apiserver v0.37.2 // indirect
+	k8s.io/component-base v0.37.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad // indirect
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
 	sigs.k8s.io/gateway-api v1.6.0 // indirect
